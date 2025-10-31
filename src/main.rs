@@ -1,13 +1,4 @@
-#!/usr/bin/env rust-script
-//! ```cargo
-//! [dependencies]
-//! ratatui = "0.28"
-//! crossterm = "0.28"
-//! serde = { version = "1", features = ["derive"] }
-//! serde_json = "1"
-//! atty = "0.2"
-//! ```
-
+//! pts: A point canvas with JSON storage.
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
