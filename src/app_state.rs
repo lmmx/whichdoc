@@ -9,12 +9,73 @@ pub struct DiagnosticEntry {
     pub coord: Coordinate,
     pub doc_comment: Option<Vec<String>>,
     pub dirty: bool,
+    pub is_external_module: bool,
+    pub module_file_path: Option<String>,
 }
 
 impl DiagnosticEntry {
+    pub fn new(id: usize, coord: Coordinate) -> Self {
+        let (is_external_module, module_file_path) = check_external_module(&coord);
+        Self {
+            id,
+            coord,
+            doc_comment: None,
+            dirty: false,
+            is_external_module,
+            module_file_path,
+        }
+    }
+
     pub fn lines_added(&self) -> usize {
         self.doc_comment.as_ref().map_or(0, |v| v.len())
     }
+
+    pub fn doc_prefix(&self) -> &'static str {
+        if self.is_external_module {
+            "//!"
+        } else {
+            "///"
+        }
+    }
+}
+
+fn check_external_module(coord: &Coordinate) -> (bool, Option<String>) {
+    if let Some(ref msg) = coord.message {
+        if msg.message == "missing documentation for a module" {
+            if let Some(span) = msg.spans.iter().find(|s| s.is_primary) {
+                if let Some(text) = span.text.first() {
+                    if text.text.trim().ends_with(';') {
+                        let module_file = get_module_file_path(span);
+                        return (true, module_file);
+                    }
+                }
+            }
+        }
+    }
+    (false, None)
+}
+
+fn get_module_file_path(span: &Span) -> Option<String> {
+    let module_name = span.text.first()?.text
+        .trim()
+        .strip_prefix("pub ")?
+        .strip_prefix("mod ")?
+        .strip_suffix(';')?
+        .trim();
+
+    let dir = std::path::Path::new(&span.file_name).parent()?;
+
+    let direct_path = dir.join(format!("{}.rs", module_name));
+    if direct_path.exists() {
+        return Some(direct_path.to_string_lossy().to_string());
+    }
+
+    let mod_path = dir.join(module_name).join("mod.rs");
+    if mod_path.exists() {
+        return Some(mod_path.to_string_lossy().to_string());
+    }
+
+    None
 }
 
 pub struct AppState {
@@ -42,12 +103,7 @@ impl AppState {
         let entries = coords
             .into_iter()
             .enumerate()
-            .map(|(id, coord)| DiagnosticEntry {
-                id,
-                coord,
-                doc_comment: None,
-                dirty: false,
-            })
+            .map(|(id, coord)| DiagnosticEntry::new(id, coord))
             .collect();
 
         Self {
@@ -108,6 +164,7 @@ impl AppState {
                                 doc_comment,
                                 item_name,
                                 span: span.clone(),
+                                is_module_doc: entry.is_external_module,
                             });
                         }
                     }
@@ -149,7 +206,12 @@ impl AppState {
         self.detail_saved_lines = self.detail_lines.clone();
 
         let entry = &self.entries[self.list_index];
-        if let Some(ref msg) = entry.coord.message {
+
+        if entry.is_external_module {
+            if let Some(ref module_path) = entry.module_file_path {
+                self.apply_module_doc(module_path)?;
+            }
+        } else if let Some(ref msg) = entry.coord.message {
             for span in &msg.spans {
                 if span.is_primary {
                     let doc_comment = self.detail_lines.join("\n");
@@ -162,6 +224,7 @@ impl AppState {
                         doc_comment,
                         item_name: extract_item_name(span),
                         span: span.clone(),
+                        is_module_doc: false,
                     };
 
                     self.apply_single_edit(&edit)?;
@@ -171,6 +234,22 @@ impl AppState {
         }
 
         self.message = Some("Saved".to_string());
+        Ok(())
+    }
+
+    fn apply_module_doc(&self, module_path: &str) -> io::Result<()> {
+        let content = fs::read_to_string(module_path)?;
+        let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+
+        let doc_lines: Vec<String> = self.detail_lines.iter()
+            .map(|line| format!("//! {}", line))
+            .collect();
+
+        for (i, doc_line) in doc_lines.iter().enumerate() {
+            lines.insert(i, doc_line.clone());
+        }
+
+        fs::write(module_path, lines.join("\n") + "\n")?;
         Ok(())
     }
 
@@ -214,6 +293,9 @@ impl AppState {
             return 0;
         }
         let entry = &self.entries[self.list_index];
+        if entry.is_external_module {
+            return 0;
+        }
         if let Some(ref msg) = entry.coord.message {
             for span in &msg.spans {
                 if span.is_primary {
@@ -226,7 +308,9 @@ impl AppState {
 
     pub fn get_max_line_width(&self) -> usize {
         let indent = self.get_indent();
-        self.max_width.saturating_sub(indent + 4)
+        let entry = &self.entries[self.list_index];
+        let prefix_len = entry.doc_prefix().len() + 1; // "/// " or "//! "
+        self.max_width.saturating_sub(indent + prefix_len)
     }
 }
 

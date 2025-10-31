@@ -105,9 +105,10 @@ fn draw_detail(f: &mut Frame, app: &AppState, _cfg: &Config) {
     let max_width = app.get_max_line_width();
     let indent_str = " ".repeat(indent);
 
+    let doc_prefix = app.entries[app.list_index].doc_prefix();
     let mut display_text = String::new();
     for (i, line) in app.detail_lines.iter().enumerate() {
-        display_text.push_str(&format!("{}/// {}", indent_str, line));
+        display_text.push_str(&format!("{}{} {}", indent_str, doc_prefix, line));
         if i < app.detail_lines.len() - 1 {
             display_text.push('\n');
         }
