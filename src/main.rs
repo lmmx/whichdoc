@@ -9,10 +9,11 @@ use ratatui::{
     Terminal,
 };
 use std::io;
-use whichdoc::{app_state, edit_plan, input, ui};
+use whichdoc::{app_state, config, edit_plan, input, ui};
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = std::env::args().collect();
+    let cfg = config::Config::load();
 
     let coords = if args.len() > 2 && args[1] == "--load-docs" {
         let file_content = std::fs::read_to_string(&args[2])?;
@@ -20,7 +21,7 @@ fn main() -> io::Result<()> {
         let coords = input::read_cargo_diagnostics()?;
         let mut state = app_state::AppState::new(coords);
         state.load_docs(plan);
-        return run_tui(state);
+        return run_tui(state, cfg);
     } else {
         input::read_cargo_diagnostics()?
     };
@@ -31,10 +32,10 @@ fn main() -> io::Result<()> {
     }
 
     let state = app_state::AppState::new(coords);
-    run_tui(state)
+    run_tui(state, cfg)
 }
 
-fn run_tui(mut app: app_state::AppState) -> io::Result<()> {
+fn run_tui(mut app: app_state::AppState, cfg: config::Config) -> io::Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
