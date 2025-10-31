@@ -257,7 +257,13 @@ impl AppState {
         let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
 
         let doc_lines: Vec<String> = self.detail_lines.iter()
-            .map(|line| format!("//! {}", line))
+            .map(|line| {
+                if line.is_empty() {
+                    "//!".to_string()
+                } else {
+                    format!("//! {}", line)
+                }
+            })
             .collect();
 
         for (i, doc_line) in doc_lines.iter().enumerate() {
