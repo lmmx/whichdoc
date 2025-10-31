@@ -5,7 +5,7 @@
 [![MIT/Apache-2.0 licensed](https://img.shields.io/crates/l/whichdoc.svg)](./LICENSE)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/lmmx/whichdoc/master.svg)](https://results.pre-commit.ci/latest/github/lmmx/whichdoc/master)
 
-A text editor for cargo documentation diagnostics.
+A cargo documentation diagnostics-driven editor.
 
 ## Licensing
 

@@ -8,7 +8,7 @@ ratatui = "0.29"
 [package]
 authors = ["Louis Maddox <louismmx@gmail.com>"]
 categories = ["command-line-utilities", "development-tools"]
-description = "A text editor for cargo documentation diagnostics"
+description = "A cargo documentation diagnostics-driven editor"
 documentation = "https://docs.rs/whichdoc/"
 edition = "2021"
 homepage = "https://github.com/lmmx/whichdoc"
