@@ -1,4 +1,4 @@
-//! pts: A point canvas with JSON storage.
+//! whichdoc: A cargo documentation diagnostics-driven editor.
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
@@ -9,12 +9,7 @@ use ratatui::{
     Terminal,
 };
 use std::io;
-
-mod types;
-mod edit_plan;
-mod input;
-mod app_state;
-mod ui;
+use whichdoc::{app_state, edit_plan, input, ui};
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = std::env::args().collect();
