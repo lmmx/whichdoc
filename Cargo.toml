@@ -1,0 +1,56 @@
+[[bin]]
+name = "whichdoc"
+path = "src/main.rs"
+
+[dependencies]
+ratatui = "0.29"
+
+[package]
+authors = ["Louis Maddox <louismmx@gmail.com>"]
+categories = ["command-line-utilities", "development-tools"]
+description = "A text editor for cargo documentation diagnostics"
+documentation = "https://docs.rs/whichdoc/"
+edition = "2021"
+homepage = "https://github.com/lmmx/whichdoc"
+keywords = ["tui", "cargo", "diagnostics", "documentation"]
+license = "MIT"
+name = "whichdoc"
+readme = "README.md"
+repository = "https://github.com/lmmx/whichdoc"
+rust-version = "1.90"
+version = "0.1.0"
+
+[package.metadata.binstall]
+pkg-fmt = "tgz"
+pkg-url = "https://github.com/lmmx/whichdoc/releases/download/whichdoc-v{ version }/whichdoc-{ target }-v{ version }.tar.gz"
+
+[package.metadata.binstall.overrides.aarch64-pc-windows-msvc]
+pkg-fmt = "zip"
+pkg-url = "https://github.com/lmmx/whichdoc/releases/download/whichdoc-v{ version }/whichdoc-aarch64-pc-windows-msvc-v{ version }.zip"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-fmt = "zip"
+pkg-url = "https://github.com/lmmx/whichdoc/releases/download/whichdoc-v{ version }/whichdoc-x86_64-pc-windows-msvc-v{ version }.zip"
+
+[profile.dev]
+codegen-units = 256
+debug = false
+lto = false
+opt-level = 0
+strip = "debuginfo"
+
+[profile.release]
+codegen-units = 1
+debug = false
+lto = "thin"
+opt-level = 2
+strip = "symbols"
+
+[lints.clippy]
+all = "deny"
+pedantic = "deny"
+cargo = "deny"
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
