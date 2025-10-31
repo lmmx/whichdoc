@@ -1,9 +1,24 @@
+//! The core state machine bridging the diagnostics and interactive editor.
+//!
+//! A TUI needs a single source of truth that can be interrogated and mutated as the user navigates
+//! and edits. We achieve this by syncing the editor save state not only with the edit plan but with
+//! the files on disk too. We keep track of the cumulative total number of lines that have been
+//! added to the file during the session so that we can determine the correct offset to insert
+//! docstrings at without re-computing the diagnostics from cargo.
+//!
+//! If the missing_docs diagnostic is for a module, we try to find the file (either {name}.rs or
+//! {name}/mod.rs) and insert it at the start as a `//!` style rather than `///` style comment.
 use crate::edit_plan::{Edit, EditPlan};
 use crate::types::{Coordinate, Span};
 use std::collections::HashMap;
 use std::{fs, io};
 
 #[derive(Clone)]
+/// Each missing documentation warning needs to be tracked individually as it moves through states.
+/// It starts out undocumented (missing), becomes edited (gets an edit plan entry), then is saved.
+/// Hallelujah! It is the atomic unit of work in the application. The dirty flag is transactional
+/// state to prevent data loss. We store the docstring as ready-made lines rather to avoid surprises
+/// from word-wrapping later (what you see is what you get).
 pub struct DiagnosticEntry {
     pub id: usize,
     pub coord: Coordinate,

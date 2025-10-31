@@ -1,3 +1,31 @@
+//! The edit plan keeps a record of the contract between the interactive session and the file system
+//!
+//! This module defines the transformation that work in the TUI manifests as actual edits on disk.
+//! The word 'plan' is used not in the sense of intent for future work, but more like blueprints,
+//! or floor plan. It represents the total set of edits that are applied over the session. They are
+//! not deferred until the end of the session, but executed upon 'save' (saving to the plan will
+//! save to the corresponding source file too).
+//!
+//! There are only 2 comment styles, `//!` module docstrings and `///` regular docstrings. They are
+//! always written for the user (the user never writes them, and the TUI shows them for all lines.
+//! The edit plan keeps a record of the contract between the interactive session and the file system
+//!
+//! This module defines the transformation that work in the TUI manifests as actual edits on disk.
+//! The word 'plan' is used not in the sense of intent for future work, but more like blueprints,
+//! or floor plan. It represents the total set of edits that are applied over the session. They are
+//! not deferred until the end of the session, but executed upon 'save' (saving to the plan will
+//! save to the corresponding source file too).
+//!
+//! There are only 2 comment styles
+//! The edit plan keeps a record of the contract between the interactive session and the file system
+//!
+//! This module defines the transformation that work in the TUI manifests as actual edits on disk.
+//! The word 'plan' is used not in the sense of intent for future work, but more like blueprints,
+//! or floor plan. It represents the total set of edits that are applied over the session. They are
+//! not deferred until the end of the session, but executed upon 'save' (saving to the plan will
+//! save to the corresponding source file too).
+//!
+//! There are only 2 comment styles
 use serde::{Deserialize, Serialize};
 use crate::types::Span;
 

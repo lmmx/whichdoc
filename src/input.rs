@@ -1,3 +1,15 @@
+//! Parse the compiler's diagnostic output (cargo doc diagnostics).
+//!
+//! These either come from a pipe over STDIN or we execute cargo doc ourselves.
+//! We filter out all but the `missing_docs` diagnostics.
+//! Parse the compiler's diagnostic output (cargo doc diagnostics).
+//!
+//! These either come from a pipe over STDIN or we execute cargo doc ourselves.
+//! We filter out all but the `missing_docs` diagnostics.
+//! Parse the compiler's diagnostic output (cargo doc diagnostics).
+//!
+//! These either come from a pipe over STDIN or we execute cargo doc ourselves.
+//! We filter out all but the `missing_docs` diagnostics.
 use crate::types::Coordinate;
 use std::io::{self, BufRead};
 use std::process::{Command, Stdio};
