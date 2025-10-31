@@ -1,3 +1,17 @@
+//! The UI renders the application state into something visible and vim-able.
+//!
+//! The draw function dispatches to draw_list or draw_detail based on the app.current_view.
+//! The rendering primitives use ratatui which arranges the page using Cassowary solver (cool!)
+//!
+//! The list view is the main menu, I think of it as a "diagnostic picker".
+//! The detail view is what you get when you "open" or "pick" a diagnostic, it doesn't add much info
+//! in practice because we always have `missing_docs` but in future it might be more like PDB++'s
+//! sticky mode (but for now it's a simple file/line number read-out followed by the rendered error.
+//!
+//! A footer at the bottom of the view shows hints for the vim-like save/exit/quit/next/prev keys.
+//!
+//! The UI is all read-only, mutation happens in the event loop, draw takes immutable references.
+//! This separation means rendering can never corrupt application state.
 use crate::app_state::{AppState, View};
 use crate::config::Config;
 use ratatui::{

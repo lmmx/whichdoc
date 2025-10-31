@@ -1,3 +1,7 @@
+//! The types mirror cargo's diagnostic ("message") JSON format.
+//!
+//! They were generated automatically from a JSON schema created via the genson-cli tool (see crate)
+//! which was converted to Rust (serde) structs using quicktype at https://app.quicktype.io#l=rust
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]

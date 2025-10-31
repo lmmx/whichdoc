@@ -1,3 +1,7 @@
+//! Configuration to acknowledge developer preferences as well as set defaults.
+//!
+//! Specifically, we try to find a rustfmt.toml, and if present we load the max width from there.
+//! This could be done more extensively in future, for now it serves as a placeholder.
 use facet::Facet;
 use std::fs;
 
