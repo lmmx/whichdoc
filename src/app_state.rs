@@ -1,23 +1,33 @@
 use crate::edit_plan::{Edit, EditPlan};
 use crate::types::{Coordinate, Span};
 use std::collections::HashMap;
+use std::{fs, io};
 
 #[derive(Clone)]
 pub struct DiagnosticEntry {
     pub id: usize,
     pub coord: Coordinate,
-    pub doc_comment: Option<String>,
+    pub doc_comment: Option<Vec<String>>,
     pub dirty: bool,
+}
+
+impl DiagnosticEntry {
+    pub fn lines_added(&self) -> usize {
+        self.doc_comment.as_ref().map_or(0, |v| v.len())
+    }
 }
 
 pub struct AppState {
     pub entries: Vec<DiagnosticEntry>,
     pub current_view: View,
     pub list_index: usize,
-    pub detail_text: String,
-    pub detail_saved_text: String,
+    pub detail_lines: Vec<String>,
+    pub detail_saved_lines: Vec<String>,
+    pub detail_cursor_line: usize,
+    pub detail_cursor_col: usize,
     pub command_buffer: String,
     pub message: Option<String>,
+    pub max_width: usize,
 }
 
 #[derive(PartialEq)]
@@ -28,7 +38,7 @@ pub enum View {
 }
 
 impl AppState {
-    pub fn new(coords: Vec<Coordinate>) -> Self {
+    pub fn new(coords: Vec<Coordinate>, max_width: usize) -> Self {
         let entries = coords
             .into_iter()
             .enumerate()
@@ -44,18 +54,26 @@ impl AppState {
             entries,
             current_view: View::List,
             list_index: 0,
-            detail_text: String::new(),
-            detail_saved_text: String::new(),
+            detail_lines: Vec::new(),
+            detail_saved_lines: Vec::new(),
+            detail_cursor_line: 0,
+            detail_cursor_col: 0,
             command_buffer: String::new(),
             message: None,
+            max_width,
         }
     }
 
+    pub fn cumulative_offset(&self, index: usize) -> usize {
+        self.entries[0..index].iter().map(|e| e.lines_added()).sum()
+    }
+
     pub fn load_docs(&mut self, plan: EditPlan) {
-        let mut doc_map: HashMap<String, String> = HashMap::new();
+        let mut doc_map: HashMap<String, Vec<String>> = HashMap::new();
         for edit in plan.edits {
             let key = format!("{}:{}:{}", edit.file_name, edit.line_start, edit.column_start);
-            doc_map.insert(key, edit.doc_comment);
+            let lines: Vec<String> = edit.doc_comment.lines().map(|s| s.to_string()).collect();
+            doc_map.insert(key, lines);
         }
 
         for entry in &mut self.entries {
@@ -75,18 +93,19 @@ impl AppState {
     pub fn generate_edit_plan(&self) -> EditPlan {
         let mut edits = Vec::new();
         for entry in &self.entries {
-            if let Some(ref doc) = entry.doc_comment {
+            if let Some(ref doc_lines) = entry.doc_comment {
                 if let Some(ref msg) = entry.coord.message {
                     for span in &msg.spans {
                         if span.is_primary {
                             let item_name = extract_item_name(span);
+                            let doc_comment = doc_lines.join("\n");
                             edits.push(Edit {
                                 file_name: span.file_name.clone(),
                                 line_start: span.line_start,
                                 line_end: span.line_end,
                                 column_start: span.column_start,
                                 column_end: span.column_end,
-                                doc_comment: doc.clone(),
+                                doc_comment,
                                 item_name,
                                 span: span.clone(),
                             });
@@ -103,27 +122,73 @@ impl AppState {
             return;
         }
         let entry = &self.entries[self.list_index];
-        self.detail_text = entry.doc_comment.clone().unwrap_or_default();
-        self.detail_saved_text = self.detail_text.clone();
+        self.detail_lines = entry.doc_comment.clone().unwrap_or_default();
+        self.detail_saved_lines = self.detail_lines.clone();
+        self.detail_cursor_line = 0;
+        self.detail_cursor_col = 0;
+        if self.detail_lines.is_empty() {
+            self.detail_lines.push(String::new());
+        }
         self.current_view = View::Detail;
     }
 
     pub fn exit_detail_view(&mut self, save: bool) {
         if save {
-            self.entries[self.list_index].doc_comment = Some(self.detail_text.clone());
+            self.entries[self.list_index].doc_comment = Some(self.detail_lines.clone());
             self.entries[self.list_index].dirty = false;
-            self.detail_saved_text = self.detail_text.clone();
+            self.detail_saved_lines = self.detail_lines.clone();
         } else {
-            self.detail_text = self.detail_saved_text.clone();
+            self.detail_lines = self.detail_saved_lines.clone();
         }
         self.current_view = View::List;
     }
 
-    pub fn save_current(&mut self) {
-        self.entries[self.list_index].doc_comment = Some(self.detail_text.clone());
+    pub fn save_current(&mut self) -> io::Result<()> {
+        self.entries[self.list_index].doc_comment = Some(self.detail_lines.clone());
         self.entries[self.list_index].dirty = false;
-        self.detail_saved_text = self.detail_text.clone();
+        self.detail_saved_lines = self.detail_lines.clone();
+
+        let entry = &self.entries[self.list_index];
+        if let Some(ref msg) = entry.coord.message {
+            for span in &msg.spans {
+                if span.is_primary {
+                    let doc_comment = self.detail_lines.join("\n");
+                    let edit = Edit {
+                        file_name: span.file_name.clone(),
+                        line_start: span.line_start,
+                        line_end: span.line_end,
+                        column_start: span.column_start,
+                        column_end: span.column_end,
+                        doc_comment,
+                        item_name: extract_item_name(span),
+                        span: span.clone(),
+                    };
+
+                    self.apply_single_edit(&edit)?;
+                    break;
+                }
+            }
+        }
+
         self.message = Some("Saved".to_string());
+        Ok(())
+    }
+
+
+    fn apply_single_edit(&self, edit: &Edit) -> io::Result<()> {
+        let content = fs::read_to_string(&edit.file_name)?;
+        let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+
+        let offset = self.cumulative_offset(self.list_index);
+        let insert_pos = (edit.line_start as usize - 1) + offset;
+        let doc_lines = edit.format_doc_lines(self.max_width);
+
+        for (i, doc_line) in doc_lines.iter().enumerate() {
+            lines.insert(insert_pos + i, doc_line.clone());
+        }
+
+        fs::write(&edit.file_name, lines.join("\n") + "\n")?;
+        Ok(())
     }
 
     pub fn find_next_undocumented(&self) -> Option<usize> {
@@ -142,6 +207,26 @@ impl AppState {
             }
         }
         None
+    }
+
+    pub fn get_indent(&self) -> usize {
+        if self.entries.is_empty() {
+            return 0;
+        }
+        let entry = &self.entries[self.list_index];
+        if let Some(ref msg) = entry.coord.message {
+            for span in &msg.spans {
+                if span.is_primary {
+                    return (span.column_start - 1) as usize;
+                }
+            }
+        }
+        0
+    }
+
+    pub fn get_max_line_width(&self) -> usize {
+        let indent = self.get_indent();
+        self.max_width.saturating_sub(indent + 4)
     }
 }
 
