@@ -1,16 +1,17 @@
 use crate::app_state::{AppState, View};
+use crate::config::Config;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
+    widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
 };
 
-pub fn draw(f: &mut Frame, app: &AppState) {
+pub fn draw(f: &mut Frame, app: &AppState, cfg: &Config) {
     match app.current_view {
         View::List => draw_list(f, app),
-        View::Detail => draw_detail(f, app),
-        View::Command => draw_detail(f, app), // Command overlay on detail
+        View::Detail => draw_detail(f, app, cfg),
+        View::Command => draw_detail(f, app, cfg),
     }
 }
 
@@ -71,7 +72,7 @@ fn draw_list(f: &mut Frame, app: &AppState) {
     f.render_widget(help, chunks[1]);
 }
 
-fn draw_detail(f: &mut Frame, app: &AppState) {
+fn draw_detail(f: &mut Frame, app: &AppState, _cfg: &Config) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -97,17 +98,29 @@ fn draw_detail(f: &mut Frame, app: &AppState) {
     };
 
     let info = Paragraph::new(info_text)
-        .block(Block::default().borders(Borders::ALL).title("Diagnostic"))
-        .wrap(Wrap { trim: true });
+        .block(Block::default().borders(Borders::ALL).title("Diagnostic"));
     f.render_widget(info, chunks[0]);
 
-    let doc_input = Paragraph::new(app.detail_text.as_str())
+    let indent = app.get_indent();
+    let max_width = app.get_max_line_width();
+    let indent_str = " ".repeat(indent);
+
+    let doc_prefix = app.entries[app.list_index].doc_prefix();
+    let mut display_text = String::new();
+    for (i, line) in app.detail_lines.iter().enumerate() {
+        display_text.push_str(&format!("{}{} {}", indent_str, doc_prefix, line));
+        if i < app.detail_lines.len() - 1 {
+            display_text.push('\n');
+        }
+    }
+
+    let title = format!("Doc Comment (max line: {} chars)", max_width);
+    let doc_input = Paragraph::new(display_text)
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title("Doc Comment (Type your documentation here)"),
-        )
-        .wrap(Wrap { trim: false });
+                .title(title),
+        );
     f.render_widget(doc_input, chunks[1]);
 
     let help_text = if app.current_view == View::Command {

@@ -9,18 +9,19 @@ use ratatui::{
     Terminal,
 };
 use std::io;
-use whichdoc::{app_state, edit_plan, input, ui};
+use whichdoc::{app_state, config, edit_plan, input, ui};
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = std::env::args().collect();
+    let cfg = config::Config::load();
 
     let coords = if args.len() > 2 && args[1] == "--load-docs" {
         let file_content = std::fs::read_to_string(&args[2])?;
         let plan: edit_plan::EditPlan = serde_json::from_str(&file_content)?;
         let coords = input::read_cargo_diagnostics()?;
-        let mut state = app_state::AppState::new(coords);
+        let mut state = app_state::AppState::new(coords, cfg.max_width);
         state.load_docs(plan);
-        return run_tui(state);
+        return run_tui(state, cfg);
     } else {
         input::read_cargo_diagnostics()?
     };
@@ -30,18 +31,18 @@ fn main() -> io::Result<()> {
         return Ok(());
     }
 
-    let state = app_state::AppState::new(coords);
-    run_tui(state)
+    let state = app_state::AppState::new(coords, cfg.max_width);
+    run_tui(state, cfg)
 }
 
-fn run_tui(mut app: app_state::AppState) -> io::Result<()> {
+fn run_tui(mut app: app_state::AppState, cfg: config::Config) -> io::Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let result = run_app(&mut terminal, &mut app);
+    let result = run_app(&mut terminal, &mut app, &cfg);
 
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
@@ -61,9 +62,10 @@ fn run_tui(mut app: app_state::AppState) -> io::Result<()> {
 fn run_app<B: ratatui::backend::Backend>(
     terminal: &mut Terminal<B>,
     app: &mut app_state::AppState,
+    cfg: &config::Config,
 ) -> io::Result<()> {
     loop {
-        terminal.draw(|f| ui::draw(f, app))?;
+        terminal.draw(|f| ui::draw(f, app, cfg))?;
 
         if let Event::Key(key) = event::read()? {
             match app.current_view {
@@ -87,6 +89,7 @@ fn run_app<B: ratatui::backend::Backend>(
                     }
                 }
                 app_state::View::Detail => {
+                    let max_width = app.get_max_line_width();
                     match key.code {
                         KeyCode::Char(':') => {
                             app.current_view = app_state::View::Command;
@@ -94,15 +97,56 @@ fn run_app<B: ratatui::backend::Backend>(
                             app.message = None;
                         }
                         KeyCode::Char(c) => {
-                            app.detail_text.push(c);
-                            app.entries[app.list_index].dirty = app.detail_text != app.detail_saved_text;
+                            let current_line = &mut app.detail_lines[app.detail_cursor_line];
+                            if current_line.len() < max_width {
+                                current_line.insert(app.detail_cursor_col, c);
+                                app.detail_cursor_col += 1;
+                                app.entries[app.list_index].dirty = app.detail_lines != app.detail_saved_lines;
+                            }
                         }
                         KeyCode::Backspace => {
-                            app.detail_text.pop();
-                            app.entries[app.list_index].dirty = app.detail_text != app.detail_saved_text;
+                            if app.detail_cursor_col > 0 {
+                                let current_line = &mut app.detail_lines[app.detail_cursor_line];
+                                current_line.remove(app.detail_cursor_col - 1);
+                                app.detail_cursor_col -= 1;
+                                app.entries[app.list_index].dirty = app.detail_lines != app.detail_saved_lines;
+                            } else if app.detail_cursor_line > 0 {
+                                let current_line = app.detail_lines.remove(app.detail_cursor_line);
+                                app.detail_cursor_line -= 1;
+                                app.detail_cursor_col = app.detail_lines[app.detail_cursor_line].len();
+                                app.detail_lines[app.detail_cursor_line].push_str(&current_line);
+                                app.entries[app.list_index].dirty = app.detail_lines != app.detail_saved_lines;
+                            }
                         }
                         KeyCode::Enter => {
-                            app.detail_text.push('\n');
+                            let current_line = &mut app.detail_lines[app.detail_cursor_line];
+                            let remainder = current_line.split_off(app.detail_cursor_col);
+                            app.detail_cursor_line += 1;
+                            app.detail_lines.insert(app.detail_cursor_line, remainder);
+                            app.detail_cursor_col = 0;
+                            app.entries[app.list_index].dirty = app.detail_lines != app.detail_saved_lines;
+                        }
+                        KeyCode::Left => {
+                            if app.detail_cursor_col > 0 {
+                                app.detail_cursor_col -= 1;
+                            }
+                        }
+                        KeyCode::Right => {
+                            if app.detail_cursor_col < app.detail_lines[app.detail_cursor_line].len() {
+                                app.detail_cursor_col += 1;
+                            }
+                        }
+                        KeyCode::Up => {
+                            if app.detail_cursor_line > 0 {
+                                app.detail_cursor_line -= 1;
+                                app.detail_cursor_col = app.detail_cursor_col.min(app.detail_lines[app.detail_cursor_line].len());
+                            }
+                        }
+                        KeyCode::Down => {
+                            if app.detail_cursor_line < app.detail_lines.len() - 1 {
+                                app.detail_cursor_line += 1;
+                                app.detail_cursor_col = app.detail_cursor_col.min(app.detail_lines[app.detail_cursor_line].len());
+                            }
                         }
                         KeyCode::Esc => {
                             if app.entries[app.list_index].dirty {
@@ -128,11 +172,16 @@ fn run_app<B: ratatui::backend::Backend>(
 
                             match cmd.as_str() {
                                 "w" => {
-                                    app.save_current();
+                                    if let Err(e) = app.save_current() {
+                                        app.message = Some(format!("Error saving: {}", e));
+                                    }
                                 }
                                 "x" => {
-                                    app.save_current();
-                                    app.exit_detail_view(true);
+                                    if let Err(e) = app.save_current() {
+                                        app.message = Some(format!("Error saving: {}", e));
+                                    } else {
+                                        app.exit_detail_view(true);
+                                    }
                                 }
                                 "q" => {
                                     if app.entries[app.list_index].dirty {
@@ -146,8 +195,9 @@ fn run_app<B: ratatui::backend::Backend>(
                                     app.exit_detail_view(false);
                                 }
                                 "wn" => {
-                                    app.save_current();
-                                    if let Some(next) = app.find_next_undocumented() {
+                                    if let Err(e) = app.save_current() {
+                                        app.message = Some(format!("Error saving: {}", e));
+                                    } else if let Some(next) = app.find_next_undocumented() {
                                         app.exit_detail_view(true);
                                         app.list_index = next;
                                         app.enter_detail_view();
@@ -156,8 +206,9 @@ fn run_app<B: ratatui::backend::Backend>(
                                     }
                                 }
                                 "wp" => {
-                                    app.save_current();
-                                    if let Some(prev) = app.find_prev_undocumented() {
+                                    if let Err(e) = app.save_current() {
+                                        app.message = Some(format!("Error saving: {}", e));
+                                    } else if let Some(prev) = app.find_prev_undocumented() {
                                         app.exit_detail_view(true);
                                         app.list_index = prev;
                                         app.enter_detail_view();

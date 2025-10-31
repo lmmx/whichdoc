@@ -16,4 +16,34 @@ pub struct Edit {
     pub doc_comment: String,
     pub item_name: String,
     pub span: Span,
+    pub is_module_doc: bool,
+}
+
+impl Edit {
+    pub fn format_doc_lines(&self, max_width: usize) -> Vec<String> {
+        let indent = " ".repeat((self.column_start - 1) as usize);
+        let prefix = if self.is_module_doc { "//!" } else { "///" };
+        let available_width = max_width.saturating_sub(indent.len() + prefix.len() + 1);
+
+        let mut lines = Vec::new();
+        let mut current_line = String::new();
+
+        for word in self.doc_comment.split_whitespace() {
+            if current_line.is_empty() {
+                current_line = word.to_string();
+            } else if current_line.len() + 1 + word.len() <= available_width {
+                current_line.push(' ');
+                current_line.push_str(word);
+            } else {
+                lines.push(format!("{}{} {}", indent, prefix, current_line));
+                current_line = word.to_string();
+            }
+        }
+
+        if !current_line.is_empty() {
+            lines.push(format!("{}{} {}", indent, prefix, current_line));
+        }
+
+        lines
+    }
 }

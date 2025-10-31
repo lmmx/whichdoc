@@ -2,6 +2,7 @@
 #![allow(clippy::multiple_crate_versions)]
 
 pub mod app_state;
+pub mod config;
 pub mod edit_plan;
 pub mod input;
 pub mod types;
