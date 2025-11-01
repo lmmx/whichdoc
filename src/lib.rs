@@ -7,6 +7,7 @@
 pub mod app_state;
 pub mod config;
 pub mod edit_plan;
+pub mod highlight;
 pub mod input;
 pub mod types;
 pub mod ui;
