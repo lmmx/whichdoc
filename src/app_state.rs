@@ -71,12 +71,12 @@ fn check_external_module(coord: &Coordinate) -> (bool, Option<String>) {
 }
 
 fn get_module_file_path(span: &Span) -> Option<String> {
-    let module_name = span.text.first()?.text
-        .trim()
-        .strip_prefix("pub ")?
-        .strip_prefix("mod ")?
-        .strip_suffix(';')?
-        .trim();
+    let text = span.text.first()?.text.trim();
+    let module_name = text
+        .split_whitespace()
+        .skip_while(|&word| word != "mod")
+        .nth(1)?  // Get the word after "mod"
+        .trim_end_matches(';');
 
     let dir = std::path::Path::new(&span.file_name).parent()?;
 
