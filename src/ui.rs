@@ -127,7 +127,7 @@ fn draw_detail(f: &mut Frame, app: &mut AppState, _cfg: &Config) {
         f.render_widget(block, chunks[1]);
 
         let editor = EditorView::new(editor_state)
-            .theme(EditorTheme::default().hide_status_line())
+            .theme(EditorTheme::default())
             .wrap(false);
         f.render_widget(editor, inner);
     }

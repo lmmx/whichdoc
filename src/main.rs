@@ -101,10 +101,17 @@ fn run_app<B: ratatui::backend::Backend>(
                             app.message = None;
                         }
                         KeyCode::Esc => {
-                            if app.entries[app.list_index].dirty {
-                                app.message = Some("Unsaved changes! Use :q to discard or :x to save".to_string());
-                            } else {
-                                app.exit_detail_view(false);
+                            // Let edtui handle Esc for mode switching, only exit if in Normal mode
+                            if let Some(ref editor_state) = app.editor_state {
+                                if editor_state.mode == edtui::EditorMode::Normal {
+                                    if app.entries[app.list_index].dirty {
+                                        app.message = Some("Unsaved changes! Use :q to discard or :x to save".to_string());
+                                    } else {
+                                        app.exit_detail_view(false);
+                                    }
+                                } else {
+                                    editor_handler.on_key_event(key, app.editor_state.as_mut().unwrap());
+                                }
                             }
                         }
                         _ => {
