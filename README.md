@@ -7,6 +7,13 @@
 
 A cargo documentation diagnostics-driven editor.
 
+## vim-like docstring editor
+
+whichdoc uses ratatui to give a "diagnostics picker" list of cargo docs `missing_docs` errors,
+and [edtui][edtui] to emulate a vim editor in which to write your docstrings.
+
+[edtui]: https://github.com/preiter93/edtui
+
 ## Licensing
 
 WhichDoc is [MIT licensed](https://github.com/lmmx/whichdoc/blob/master/LICENSE), a permissive open source license.
