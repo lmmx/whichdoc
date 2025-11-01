@@ -3,13 +3,13 @@ name = "whichdoc"
 path = "src/main.rs"
 
 [dependencies]
-ratatui = "0.29"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
 atty = "0.2"
+edtui = { features = ["arboard", "syntax-highlighting"], version = "0.9.8" }
 facet = "0.30"
 facet-toml = "0.30"
-edtui = { version = "0.9.8", features = ["arboard", "syntax-highlighting"] }
+ratatui = "0.29"
+serde = { features = ["derive"], version = "1" }
+serde_json = "1"
 
 [package]
 authors = ["Louis Maddox <louismmx@gmail.com>"]
@@ -18,7 +18,7 @@ description = "A cargo documentation diagnostics-driven editor"
 documentation = "https://docs.rs/whichdoc/"
 edition = "2021"
 homepage = "https://github.com/lmmx/whichdoc"
-keywords = ["tui", "cargo", "diagnostics", "documentation"]
+keywords = ["cargo", "diagnostics", "documentation", "tui"]
 license = "MIT"
 name = "whichdoc"
 readme = "README.md"
@@ -54,8 +54,8 @@ strip = "symbols"
 
 [lints.clippy]
 all = "deny"
-pedantic = "deny"
 cargo = "deny"
+pedantic = "deny"
 
 [lints.rust]
 unsafe_code = "forbid"

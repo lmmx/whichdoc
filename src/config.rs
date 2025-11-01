@@ -12,6 +12,11 @@ pub struct Config {
 }
 
 impl Config {
+    #[must_use]
+    ///
+    /// # Panics
+    ///
+    /// Panics if the default configuration cannot be parsed.
     pub fn load() -> Self {
         if let Ok(contents) = fs::read_to_string("rustfmt.toml") {
             if let Ok(config) = facet_toml::from_str::<Config>(&contents) {

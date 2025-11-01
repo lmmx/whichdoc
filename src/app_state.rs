@@ -6,11 +6,11 @@
 //! added to the file during the session so that we can determine the correct offset to insert
 //! docstrings at without re-computing the diagnostics from cargo.
 //!
-//! If the missing_docs diagnostic is for a module, we try to find the file (either {name}.rs or
+//! If the `missing_docs` diagnostic is for a module, we try to find the file (either {name}.rs or
 //! {name}/mod.rs) and insert it at the start as a `//!` style rather than `///` style comment.
 use crate::edit_plan::{Edit, EditPlan};
-use edtui::{EditorState, Lines};
 use crate::types::{Coordinate, Span};
+use edtui::{EditorState, Lines};
 use std::collections::HashMap;
 use std::{fs, io};
 
@@ -30,6 +30,7 @@ pub struct DiagnosticEntry {
 }
 
 impl DiagnosticEntry {
+    #[must_use]
     pub fn new(id: usize, coord: Coordinate) -> Self {
         let (is_external_module, module_file_path) = check_external_module(&coord);
         Self {
@@ -42,14 +43,17 @@ impl DiagnosticEntry {
         }
     }
 
+    #[must_use]
     pub fn lines_added(&self) -> usize {
-        self.doc_comment.as_ref().map_or(0, |v| v.len())
+        self.doc_comment.as_ref().map_or(0, std::vec::Vec::len)
     }
 
+    #[must_use]
     pub fn is_external_module_with_file(&self) -> bool {
         self.is_external_module && self.module_file_path.is_some()
     }
 
+    #[must_use]
     pub fn doc_prefix(&self) -> &'static str {
         if self.is_external_module_with_file() {
             "//!"
@@ -80,12 +84,12 @@ fn get_module_file_path(span: &Span) -> Option<String> {
     let module_name = text
         .split_whitespace()
         .skip_while(|&word| word != "mod")
-        .nth(1)?  // Get the word after "mod"
+        .nth(1)? // Get the word after "mod"
         .trim_end_matches(';');
 
     let dir = std::path::Path::new(&span.file_name).parent()?;
 
-    let direct_path = dir.join(format!("{}.rs", module_name));
+    let direct_path = dir.join(format!("{module_name}.rs"));
     if direct_path.exists() {
         return Some(direct_path.to_string_lossy().to_string());
     }
@@ -119,6 +123,7 @@ pub enum View {
 }
 
 impl AppState {
+    #[must_use]
     pub fn new(coords: Vec<Coordinate>, max_width: usize) -> Self {
         let entries = coords
             .into_iter()
@@ -152,16 +157,15 @@ impl AppState {
 
             if entry.is_external_module_with_file() {
                 // External modules write to target file at line 0, not source file's span location
-                let file_map = self.file_offsets
+                let file_map = self
+                    .file_offsets
                     .entry(entry.module_file_path.clone().unwrap())
-                    .or_insert_with(HashMap::new);
+                    .or_default();
 
                 file_map.insert(0, lines_added);
             } else if let Some(ref msg) = entry.coord.message {
                 if let Some(span) = msg.spans.iter().find(|s| s.is_primary) {
-                    let file_map = self.file_offsets
-                        .entry(span.file_name.clone())
-                        .or_insert_with(HashMap::new);
+                    let file_map = self.file_offsets.entry(span.file_name.clone()).or_default();
 
                     file_map.insert(span.line_start, lines_added);
                 }
@@ -169,6 +173,7 @@ impl AppState {
         }
     }
 
+    #[must_use]
     pub fn cumulative_offset(&self, index: usize) -> usize {
         let entry = &self.entries[index];
 
@@ -183,7 +188,8 @@ impl AppState {
         };
 
         if let Some(file_map) = self.file_offsets.get(&target_file) {
-            file_map.iter()
+            file_map
+                .iter()
                 .filter(|(line, _)| **line < target_line)
                 .map(|(_, offset)| offset)
                 .sum()
@@ -195,8 +201,15 @@ impl AppState {
     pub fn load_docs(&mut self, plan: EditPlan) {
         let mut doc_map: HashMap<String, Vec<String>> = HashMap::new();
         for edit in plan.edits {
-            let key = format!("{}:{}:{}", edit.file_name, edit.line_start, edit.column_start);
-            let lines: Vec<String> = edit.doc_comment.lines().map(|s| s.to_string()).collect();
+            let key = format!(
+                "{}:{}:{}",
+                edit.file_name, edit.line_start, edit.column_start
+            );
+            let lines: Vec<String> = edit
+                .doc_comment
+                .lines()
+                .map(std::string::ToString::to_string)
+                .collect();
             doc_map.insert(key, lines);
         }
 
@@ -204,7 +217,10 @@ impl AppState {
             if let Some(ref msg) = entry.coord.message {
                 for span in &msg.spans {
                     if span.is_primary {
-                        let key = format!("{}:{}:{}", span.file_name, span.line_start, span.column_start);
+                        let key = format!(
+                            "{}:{}:{}",
+                            span.file_name, span.line_start, span.column_start
+                        );
                         if let Some(doc) = doc_map.get(&key) {
                             entry.doc_comment = Some(doc.clone());
                         }
@@ -214,6 +230,7 @@ impl AppState {
         }
     }
 
+    #[must_use]
     pub fn generate_edit_plan(&self) -> EditPlan {
         let mut edits = Vec::new();
         for entry in &self.entries {
@@ -261,12 +278,13 @@ impl AppState {
         self.current_view = View::Detail;
     }
 
-
     pub fn exit_detail_view(&mut self, save: bool) {
         if save {
             // Extract text from editor
             if let Some(ref editor_state) = self.editor_state {
-                self.detail_lines = editor_state.lines.iter_row()
+                self.detail_lines = editor_state
+                    .lines
+                    .iter_row()
                     .map(|line| line.iter().collect::<String>())
                     .collect();
             }
@@ -280,7 +298,14 @@ impl AppState {
         self.current_view = View::List;
     }
 
-
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if file operations fail.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `module_file_path` is `None` when expected to be `Some`.
     pub fn save_current(&mut self) -> io::Result<()> {
         // Saves the current diagnostic's documentation to disk and updates the offset tracking.
         //
@@ -290,7 +315,9 @@ impl AppState {
         // rebuilds the file offset map to track cumulative line additions per file.
         // Extract text from editor before saving
         if let Some(ref editor_state) = self.editor_state {
-            self.detail_lines = editor_state.lines.iter_row()
+            self.detail_lines = editor_state
+                .lines
+                .iter_row()
                 .map(|line| line.iter().collect::<String>())
                 .collect();
         }
@@ -332,14 +359,19 @@ impl AppState {
 
     fn apply_module_doc(&self, module_path: &str) -> io::Result<()> {
         let content = fs::read_to_string(module_path)?;
-        let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+        let mut lines: Vec<String> = content
+            .lines()
+            .map(std::string::ToString::to_string)
+            .collect();
 
-        let doc_lines: Vec<String> = self.detail_lines.iter()
+        let doc_lines: Vec<String> = self
+            .detail_lines
+            .iter()
             .map(|line| {
                 if line.is_empty() {
                     "//!".to_string()
                 } else {
-                    format!("//! {}", line)
+                    format!("//! {line}")
                 }
             })
             .collect();
@@ -352,13 +384,18 @@ impl AppState {
         Ok(())
     }
 
-
     fn apply_single_edit(&self, edit: &Edit) -> io::Result<()> {
         let content = fs::read_to_string(&edit.file_name)?;
-        let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+        let mut lines: Vec<String> = content
+            .lines()
+            .map(std::string::ToString::to_string)
+            .collect();
 
         let offset = self.cumulative_offset(self.list_index);
-        let insert_pos = (edit.line_start as usize - 1) + offset;
+        let insert_pos = (usize::try_from(edit.line_start)
+            .unwrap_or(0)
+            .saturating_sub(1))
+            + offset;
         let doc_lines = edit.format_doc_lines(self.max_width);
 
         for (i, doc_line) in doc_lines.iter().enumerate() {
@@ -369,24 +406,19 @@ impl AppState {
         Ok(())
     }
 
+    #[must_use]
     pub fn find_next_undocumented(&self) -> Option<usize> {
-        for i in (self.list_index + 1)..self.entries.len() {
-            if self.entries[i].doc_comment.is_none() {
-                return Some(i);
-            }
-        }
-        None
+        ((self.list_index + 1)..self.entries.len()).find(|&i| self.entries[i].doc_comment.is_none())
     }
 
+    #[must_use]
     pub fn find_prev_undocumented(&self) -> Option<usize> {
-        for i in (0..self.list_index).rev() {
-            if self.entries[i].doc_comment.is_none() {
-                return Some(i);
-            }
-        }
-        None
+        (0..self.list_index)
+            .rev()
+            .find(|&i| self.entries[i].doc_comment.is_none())
     }
 
+    #[must_use]
     pub fn get_indent(&self) -> usize {
         if self.entries.is_empty() {
             return 0;
@@ -398,13 +430,14 @@ impl AppState {
         if let Some(ref msg) = entry.coord.message {
             for span in &msg.spans {
                 if span.is_primary {
-                    return (span.column_start - 1) as usize;
+                    return usize::try_from(span.column_start - 1).unwrap_or(0);
                 }
             }
         }
         0
     }
 
+    #[must_use]
     pub fn get_max_line_width(&self) -> usize {
         let indent = self.get_indent();
         let entry = &self.entries[self.list_index];
@@ -414,7 +447,7 @@ impl AppState {
 }
 
 fn extract_item_name(span: &Span) -> String {
-    if !span.text.is_empty() {
+    if span.text.is_empty() {
         span.text[0]
             .text
             .split('{')

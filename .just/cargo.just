@@ -7,6 +7,9 @@ check:
 clippy:
     cargo clippy --workspace --all-targets --all-features --target-dir target/clippy-all-features -- -D warnings
 
+clippy-fix:
+    cargo clippy --fix --workspace --all-targets --all-features --target-dir target/clippy-all-features -- -D warnings
+
 test *args:
     cargo nextest run {{args}}
 

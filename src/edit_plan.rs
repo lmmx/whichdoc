@@ -26,8 +26,8 @@
 //! save to the corresponding source file too).
 //!
 //! There are only 2 comment styles
-use serde::{Deserialize, Serialize};
 use crate::types::Span;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct EditPlan {
@@ -48,8 +48,9 @@ pub struct Edit {
 }
 
 impl Edit {
+    #[must_use]
     pub fn format_doc_lines(&self, max_width: usize) -> Vec<String> {
-        let indent = " ".repeat((self.column_start - 1) as usize);
+        let indent = " ".repeat(usize::try_from(self.column_start - 1).unwrap_or(0));
         let prefix = if self.is_module_doc { "//!" } else { "///" };
         let available_width = max_width.saturating_sub(indent.len() + prefix.len() + 1);
 
@@ -63,13 +64,13 @@ impl Edit {
                 current_line.push(' ');
                 current_line.push_str(word);
             } else {
-                lines.push(format!("{}{} {}", indent, prefix, current_line));
+                lines.push(format!("{indent}{prefix} {current_line}"));
                 current_line = word.to_string();
             }
         }
 
         if !current_line.is_empty() {
-            lines.push(format!("{}{} {}", indent, prefix, current_line));
+            lines.push(format!("{indent}{prefix} {current_line}"));
         }
 
         lines
