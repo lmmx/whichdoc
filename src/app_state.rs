@@ -298,6 +298,14 @@ impl AppState {
         self.current_view = View::List;
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if file operations fail.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `module_file_path` is `None` when expected to be `Some`.
     pub fn save_current(&mut self) -> io::Result<()> {
         // Saves the current diagnostic's documentation to disk and updates the offset tracking.
         //

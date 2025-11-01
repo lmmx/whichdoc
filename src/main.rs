@@ -1,4 +1,5 @@
 //! whichdoc: A cargo documentation diagnostics-driven editor.
+#![allow(clippy::multiple_crate_versions)]
 use edtui::EditorEventHandler;
 use ratatui::crossterm::{
     event::{self, Event, KeyCode},
@@ -19,7 +20,7 @@ fn main() -> io::Result<()> {
         let coords = input::read_cargo_diagnostics()?;
         let mut state = app_state::AppState::new(coords, cfg.max_width);
         state.load_docs(plan);
-        return run_tui(state, cfg);
+        return run_tui(state, &cfg);
     } else {
         input::read_cargo_diagnostics()?
     };
@@ -30,10 +31,10 @@ fn main() -> io::Result<()> {
     }
 
     let state = app_state::AppState::new(coords, cfg.max_width);
-    run_tui(state, cfg)
+    run_tui(state, &cfg)
 }
 
-fn run_tui(mut app: app_state::AppState, cfg: config::Config) -> io::Result<()> {
+fn run_tui(mut app: app_state::AppState, cfg: &config::Config) -> io::Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
@@ -42,7 +43,7 @@ fn run_tui(mut app: app_state::AppState, cfg: config::Config) -> io::Result<()> 
 
     let mut editor_handler = EditorEventHandler::default();
 
-    let result = run_app(&mut terminal, &mut app, &cfg, &mut editor_handler);
+    let result = run_app(&mut terminal, &mut app, cfg, &mut editor_handler);
 
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;

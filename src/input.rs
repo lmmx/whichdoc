@@ -14,6 +14,14 @@ use crate::types::Coordinate;
 use std::io::{self, BufRead};
 use std::process::{Command, Stdio};
 
+///
+/// # Errors
+///
+/// Returns an error if cargo command fails or output cannot be parsed.
+///
+/// # Panics
+///
+/// Panics if stdout cannot be captured from the cargo process.
 pub fn read_cargo_diagnostics() -> io::Result<Vec<Coordinate>> {
     let input: Box<dyn BufRead> = if atty::is(atty::Stream::Stdin) {
         let child = Command::new("cargo")
