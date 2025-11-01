@@ -60,6 +60,7 @@ fn run_tui(mut app: app_state::AppState, cfg: &config::Config) -> io::Result<()>
     Ok(())
 }
 
+#[allow(clippy::too_many_lines)]
 fn run_app<B: ratatui::backend::Backend>(
     terminal: &mut Terminal<B>,
     app: &mut app_state::AppState,
