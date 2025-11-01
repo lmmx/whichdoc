@@ -93,7 +93,6 @@ fn run_app<B: ratatui::backend::Backend>(
                     }
                 }
                 app_state::View::Detail => {
-                    let max_width = app.get_max_line_width();
                     match key.code {
                         KeyCode::Char(':') => {
                             app.current_view = app_state::View::Command;

@@ -14,7 +14,7 @@
 //! This separation means rendering can never corrupt application state.
 use crate::app_state::{AppState, View};
 use crate::config::Config;
-use edtui::{EditorView, EditorTheme};
+use edtui::{EditorView, EditorTheme, SyntaxHighlighter};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
@@ -117,6 +117,13 @@ fn draw_detail(f: &mut Frame, app: &mut AppState, _cfg: &Config) {
     f.render_widget(info, chunks[0]);
 
     let max_width = app.get_max_line_width();
+    let max_width_u16: u16 = match max_width.try_into() {
+        Ok(value) => value, // Successfully converted
+        Err(_) => {
+            u16::MAX
+        }
+    };
+
     let title = format!("Doc Comment (max line: {} chars)", max_width);
 
     if let Some(ref mut editor_state) = app.editor_state {
@@ -126,10 +133,18 @@ fn draw_detail(f: &mut Frame, app: &mut AppState, _cfg: &Config) {
         let inner = block.inner(chunks[1]);
         f.render_widget(block, chunks[1]);
 
+        let syntax_highlighter = SyntaxHighlighter::new("dracula", "rs");
         let editor = EditorView::new(editor_state)
             .theme(EditorTheme::default())
-            .wrap(false);
-        f.render_widget(editor, inner);
+            .syntax_highlighter(Some(syntax_highlighter))
+            .wrap(true);
+
+        let editor_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![Constraint::Length(max_width_u16), Constraint::Min(0)])
+            .split(inner);
+
+        f.render_widget(editor, editor_chunks[0]);
     }
 
 
