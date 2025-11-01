@@ -266,8 +266,9 @@ impl AppState {
         if save {
             // Extract text from editor
             if let Some(ref editor_state) = self.editor_state {
-                let text = String::from(editor_state.lines.clone());
-                self.detail_lines = text.lines().map(String::from).collect();
+                self.detail_lines = editor_state.lines.iter_row()
+                    .map(|line| line.iter().collect::<String>())
+                    .collect();
             }
             self.entries[self.list_index].doc_comment = Some(self.detail_lines.clone());
             self.entries[self.list_index].dirty = false;
@@ -289,8 +290,9 @@ impl AppState {
         // rebuilds the file offset map to track cumulative line additions per file.
         // Extract text from editor before saving
         if let Some(ref editor_state) = self.editor_state {
-            let text = String::from(editor_state.lines.clone());
-            self.detail_lines = text.lines().map(String::from).collect();
+            self.detail_lines = editor_state.lines.iter_row()
+                .map(|line| line.iter().collect::<String>())
+                .collect();
         }
         self.entries[self.list_index].doc_comment = Some(self.detail_lines.clone());
         self.entries[self.list_index].dirty = false;
