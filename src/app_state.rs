@@ -9,6 +9,7 @@
 //! If the missing_docs diagnostic is for a module, we try to find the file (either {name}.rs or
 //! {name}/mod.rs) and insert it at the start as a `//!` style rather than `///` style comment.
 use crate::edit_plan::{Edit, EditPlan};
+use edtui::{EditorState, Lines};
 use crate::types::{Coordinate, Span};
 use std::collections::HashMap;
 use std::{fs, io};
@@ -103,8 +104,7 @@ pub struct AppState {
     pub list_index: usize,
     pub detail_lines: Vec<String>,
     pub detail_saved_lines: Vec<String>,
-    pub detail_cursor_line: usize,
-    pub detail_cursor_col: usize,
+    pub editor_state: Option<EditorState>,
     pub command_buffer: String,
     pub message: Option<String>,
     pub max_width: usize,
@@ -132,8 +132,7 @@ impl AppState {
             list_index: 0,
             detail_lines: Vec::new(),
             detail_saved_lines: Vec::new(),
-            detail_cursor_line: 0,
-            detail_cursor_col: 0,
+            editor_state: None,
             command_buffer: String::new(),
             message: None,
             max_width,
@@ -250,24 +249,36 @@ impl AppState {
         let entry = &self.entries[self.list_index];
         self.detail_lines = entry.doc_comment.clone().unwrap_or_default();
         self.detail_saved_lines = self.detail_lines.clone();
-        self.detail_cursor_line = 0;
-        self.detail_cursor_col = 0;
         if self.detail_lines.is_empty() {
             self.detail_lines.push(String::new());
         }
+
+        // Convert Vec<String> to Lines
+        let text = self.detail_lines.join("\n");
+        let lines = Lines::from(text.as_str());
+        self.editor_state = Some(EditorState::new(lines));
+
         self.current_view = View::Detail;
     }
 
+
     pub fn exit_detail_view(&mut self, save: bool) {
         if save {
+            // Extract text from editor
+            if let Some(ref editor_state) = self.editor_state {
+                let text = String::from(editor_state.lines.clone());
+                self.detail_lines = text.lines().map(String::from).collect();
+            }
             self.entries[self.list_index].doc_comment = Some(self.detail_lines.clone());
             self.entries[self.list_index].dirty = false;
             self.detail_saved_lines = self.detail_lines.clone();
         } else {
             self.detail_lines = self.detail_saved_lines.clone();
         }
+        self.editor_state = None;
         self.current_view = View::List;
     }
+
 
     pub fn save_current(&mut self) -> io::Result<()> {
         // Saves the current diagnostic's documentation to disk and updates the offset tracking.
@@ -276,6 +287,11 @@ impl AppState {
         // file, either as a module docstring (//!) at the start of an external module file, or as
         // a regular docstring (///) before the item at the diagnostic's location. After writing,
         // rebuilds the file offset map to track cumulative line additions per file.
+        // Extract text from editor before saving
+        if let Some(ref editor_state) = self.editor_state {
+            let text = String::from(editor_state.lines.clone());
+            self.detail_lines = text.lines().map(String::from).collect();
+        }
         self.entries[self.list_index].doc_comment = Some(self.detail_lines.clone());
         self.entries[self.list_index].dirty = false;
         self.detail_saved_lines = self.detail_lines.clone();
