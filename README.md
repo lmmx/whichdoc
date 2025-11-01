@@ -14,6 +14,14 @@ and [edtui][edtui] to emulate a vim editor in which to write your docstrings.
 
 [edtui]: https://github.com/preiter93/edtui
 
+## Installation
+
+Regular cargo install or (recommended) install the pre-built binary with:
+
+```sh
+cargo binstall whichdoc
+```
+
 ## Licensing
 
 WhichDoc is [MIT licensed](https://github.com/lmmx/whichdoc/blob/master/LICENSE), a permissive open source license.
