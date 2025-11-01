@@ -24,7 +24,7 @@ name = "whichdoc"
 readme = "README.md"
 repository = "https://github.com/lmmx/whichdoc"
 rust-version = "1.90"
-version = "0.1.2"
+version = "0.1.3"
 
 [package.metadata.binstall]
 pkg-fmt = "tgz"
@@ -59,4 +59,4 @@ cargo = "deny"
 
 [lints.rust]
 unsafe_code = "forbid"
-missing_docs = "deny"
+# missing_docs = "deny"
