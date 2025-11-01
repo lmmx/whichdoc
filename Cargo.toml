@@ -7,9 +7,13 @@ atty = "0.2"
 edtui = { features = ["arboard", "syntax-highlighting"], version = "0.9.8" }
 facet = "0.30"
 facet-toml = "0.30"
+once_cell = { default-features = false, version = "1.21.3" }
 ratatui = "0.29"
 serde = { features = ["derive"], version = "1" }
 serde_json = "1"
+syntect = { default-features = false, features = [
+  "default-fancy",
+], version = "5.3.0" }
 
 [package]
 authors = ["Louis Maddox <louismmx@gmail.com>"]

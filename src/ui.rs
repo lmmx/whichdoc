@@ -14,6 +14,7 @@
 //! This separation means rendering can never corrupt application state.
 use crate::app_state::{AppState, View};
 use crate::config::Config;
+use crate::highlight;
 use edtui::{EditorTheme, EditorView, SyntaxHighlighter};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
@@ -96,9 +97,10 @@ fn draw_detail(f: &mut Frame, app: &mut AppState, _cfg: &Config) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(10),
-            Constraint::Min(0),
-            Constraint::Length(3),
+            Constraint::Length(10),     // Diagnostic info
+            Constraint::Percentage(40), // Source code viewer
+            Constraint::Percentage(40), // Doc comment editor
+            Constraint::Length(3),      // Help
         ])
         .split(f.area());
 
@@ -129,10 +131,35 @@ fn draw_detail(f: &mut Frame, app: &mut AppState, _cfg: &Config) {
 
     let title = format!("Doc Comment (max line: {max_width} chars)");
 
+    if let Some(ref msg) = entry.coord.message {
+        if let Some(span) = msg.spans.iter().find(|s| s.is_primary) {
+            if let Ok(content) = std::fs::read_to_string(&span.file_name) {
+                let lines: Vec<&str> = content.lines().collect();
+
+                // Add the cumulative offset here
+                let offset = app.cumulative_offset(app.list_index);
+                let target_line = (span.line_start as usize).saturating_sub(1) + offset;
+                let start = target_line.saturating_sub(5);
+                let end = (target_line + 15).min(lines.len());
+
+                let display_lines =
+                    highlight::highlight_source_lines(&lines, start, end, target_line);
+
+                let viewer = Paragraph::new(display_lines).block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title(format!("Source: {}", span.file_name)),
+                );
+
+                f.render_widget(viewer, chunks[1]);
+            }
+        }
+    }
+
     if let Some(ref mut editor_state) = app.editor_state {
         let block = Block::default().borders(Borders::ALL).title(title);
-        let inner = block.inner(chunks[1]);
-        f.render_widget(block, chunks[1]);
+        let inner = block.inner(chunks[2]);
+        f.render_widget(block, chunks[2]);
 
         let syntax_highlighter = SyntaxHighlighter::new("dracula", "rs");
         let editor = EditorView::new(editor_state)
@@ -158,5 +185,5 @@ fn draw_detail(f: &mut Frame, app: &mut AppState, _cfg: &Config) {
     };
 
     let help = Paragraph::new(help_text).block(Block::default().borders(Borders::ALL));
-    f.render_widget(help, chunks[2]);
+    f.render_widget(help, chunks[3]);
 }
