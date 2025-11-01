@@ -1,6 +1,6 @@
 //! The UI renders the application state into something visible and vim-able.
 //!
-//! The draw function dispatches to draw_list or draw_detail based on the app.current_view.
+//! The draw function dispatches to `draw_list` or `draw_detail` based on the `app.current_view`.
 //! The rendering primitives use ratatui which arranges the page using Cassowary solver (cool!)
 //!
 //! The list view is the main menu, I think of it as a "diagnostic picker".
@@ -14,7 +14,7 @@
 //! This separation means rendering can never corrupt application state.
 use crate::app_state::{AppState, View};
 use crate::config::Config;
-use edtui::{EditorView, EditorTheme, SyntaxHighlighter};
+use edtui::{EditorTheme, EditorView, SyntaxHighlighter};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
@@ -65,7 +65,11 @@ fn draw_list(f: &mut Frame, app: &AppState) {
                 "unknown".to_string()
             };
 
-            let status = if entry.doc_comment.is_some() { "✓" } else { " " };
+            let status = if entry.doc_comment.is_some() {
+                "✓"
+            } else {
+                " "
+            };
             let text = format!("[{}] #{}: {}", status, entry.id, item_name);
 
             ListItem::new(text).style(if i == app.list_index {
@@ -112,24 +116,20 @@ fn draw_detail(f: &mut Frame, app: &mut AppState, _cfg: &Config) {
         "No message".to_string()
     };
 
-    let info = Paragraph::new(info_text)
-        .block(Block::default().borders(Borders::ALL).title("Diagnostic"));
+    let info =
+        Paragraph::new(info_text).block(Block::default().borders(Borders::ALL).title("Diagnostic"));
     f.render_widget(info, chunks[0]);
 
     let max_width = app.get_max_line_width();
     let max_width_u16: u16 = match max_width.try_into() {
         Ok(value) => value, // Successfully converted
-        Err(_) => {
-            u16::MAX
-        }
+        Err(_) => u16::MAX,
     };
 
-    let title = format!("Doc Comment (max line: {} chars)", max_width);
+    let title = format!("Doc Comment (max line: {max_width} chars)");
 
     if let Some(ref mut editor_state) = app.editor_state {
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .title(title);
+        let block = Block::default().borders(Borders::ALL).title(title);
         let inner = block.inner(chunks[1]);
         f.render_widget(block, chunks[1]);
 
@@ -147,13 +147,13 @@ fn draw_detail(f: &mut Frame, app: &mut AppState, _cfg: &Config) {
         f.render_widget(editor, editor_chunks[0]);
     }
 
-
     let help_text = if app.current_view == View::Command {
         format!(":{}", app.command_buffer)
     } else if let Some(ref msg) = app.message {
         msg.clone()
     } else {
-        ":w Save | :x Save & Exit | :q Quit | :q! Force Quit | :wn Save & Next | :wp Save & Prev".to_string()
+        ":w Save | :x Save & Exit | :q Quit | :q! Force Quit | :wn Save & Next | :wp Save & Prev"
+            .to_string()
     };
 
     let help = Paragraph::new(help_text).block(Block::default().borders(Borders::ALL));
