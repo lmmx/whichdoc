@@ -314,6 +314,7 @@ impl AppState {
         // a regular docstring (///) before the item at the diagnostic's location. After writing,
         // rebuilds the file offset map to track cumulative line additions per file.
         // Extract text from editor before saving
+        // Extract text from editor before saving
         if let Some(ref editor_state) = self.editor_state {
             self.detail_lines = editor_state
                 .lines
@@ -321,6 +322,10 @@ impl AppState {
                 .map(|line| line.iter().collect::<String>())
                 .collect();
         }
+
+        let entry = &self.entries[self.list_index];
+        let old_lines_count = entry.doc_comment.as_ref().map_or(0, |doc| doc.len());
+
         self.entries[self.list_index].doc_comment = Some(self.detail_lines.clone());
         self.entries[self.list_index].dirty = false;
         self.detail_saved_lines = self.detail_lines.clone();
@@ -328,8 +333,7 @@ impl AppState {
         let entry = &self.entries[self.list_index];
 
         if entry.is_external_module_with_file() {
-            // the ...with_file variant ensures module_file_path is Some
-            self.apply_module_doc(entry.module_file_path.as_ref().unwrap())?;
+            self.apply_module_doc(entry.module_file_path.as_ref().unwrap(), old_lines_count)?;
         } else if let Some(ref msg) = entry.coord.message {
             for span in &msg.spans {
                 if span.is_primary {
@@ -346,7 +350,7 @@ impl AppState {
                         is_module_doc: false,
                     };
 
-                    self.apply_single_edit(&edit)?;
+                    self.apply_single_edit(&edit, old_lines_count)?;
                     break;
                 }
             }
@@ -357,12 +361,17 @@ impl AppState {
         Ok(())
     }
 
-    fn apply_module_doc(&self, module_path: &str) -> io::Result<()> {
+    fn apply_module_doc(&self, module_path: &str, old_lines_count: usize) -> io::Result<()> {
         let content = fs::read_to_string(module_path)?;
         let mut lines: Vec<String> = content
             .lines()
             .map(std::string::ToString::to_string)
             .collect();
+
+        // Remove old doc comment if it exists
+        if old_lines_count > 0 {
+            lines.drain(0..old_lines_count);
+        }
 
         let doc_lines: Vec<String> = self
             .detail_lines
@@ -384,7 +393,7 @@ impl AppState {
         Ok(())
     }
 
-    fn apply_single_edit(&self, edit: &Edit) -> io::Result<()> {
+    fn apply_single_edit(&self, edit: &Edit, old_lines_count: usize) -> io::Result<()> {
         let content = fs::read_to_string(&edit.file_name)?;
         let mut lines: Vec<String> = content
             .lines()
@@ -396,8 +405,16 @@ impl AppState {
             .unwrap_or(0)
             .saturating_sub(1))
             + offset;
+
+        // Remove old doc comment if it exists
+        if old_lines_count > 0 {
+            // The old doc is currently sitting at insert_pos
+            lines.drain(insert_pos..insert_pos + old_lines_count);
+        }
+
         let doc_lines = edit.format_doc_lines(self.max_width);
 
+        // After removing old doc, insert new doc at the same position
         for (i, doc_line) in doc_lines.iter().enumerate() {
             lines.insert(insert_pos + i, doc_line.clone());
         }
