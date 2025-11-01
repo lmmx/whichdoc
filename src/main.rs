@@ -1,5 +1,5 @@
 //! whichdoc: A cargo documentation diagnostics-driven editor.
-use crossterm::{
+use ratatui::crossterm::{
     event::{self, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -10,6 +10,7 @@ use ratatui::{
 };
 use std::io;
 use whichdoc::{app_state, config, edit_plan, input, ui};
+use edtui::EditorEventHandler;
 
 fn main() -> io::Result<()> {
     let args: Vec<String> = std::env::args().collect();
@@ -42,7 +43,9 @@ fn run_tui(mut app: app_state::AppState, cfg: config::Config) -> io::Result<()> 
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let result = run_app(&mut terminal, &mut app, &cfg);
+    let mut editor_handler = EditorEventHandler::default();
+
+    let result = run_app(&mut terminal, &mut app, &cfg, &mut editor_handler);
 
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
@@ -63,6 +66,7 @@ fn run_app<B: ratatui::backend::Backend>(
     terminal: &mut Terminal<B>,
     app: &mut app_state::AppState,
     cfg: &config::Config,
+    editor_handler: &mut EditorEventHandler,
 ) -> io::Result<()> {
     loop {
         terminal.draw(|f| ui::draw(f, app, cfg))?;
@@ -89,73 +93,32 @@ fn run_app<B: ratatui::backend::Backend>(
                     }
                 }
                 app_state::View::Detail => {
-                    let max_width = app.get_max_line_width();
                     match key.code {
                         KeyCode::Char(':') => {
                             app.current_view = app_state::View::Command;
                             app.command_buffer.clear();
                             app.message = None;
                         }
-                        KeyCode::Char(c) => {
-                            let current_line = &mut app.detail_lines[app.detail_cursor_line];
-                            if current_line.len() < max_width {
-                                current_line.insert(app.detail_cursor_col, c);
-                                app.detail_cursor_col += 1;
-                                app.entries[app.list_index].dirty = app.detail_lines != app.detail_saved_lines;
-                            }
-                        }
-                        KeyCode::Backspace => {
-                            if app.detail_cursor_col > 0 {
-                                let current_line = &mut app.detail_lines[app.detail_cursor_line];
-                                current_line.remove(app.detail_cursor_col - 1);
-                                app.detail_cursor_col -= 1;
-                                app.entries[app.list_index].dirty = app.detail_lines != app.detail_saved_lines;
-                            } else if app.detail_cursor_line > 0 {
-                                let current_line = app.detail_lines.remove(app.detail_cursor_line);
-                                app.detail_cursor_line -= 1;
-                                app.detail_cursor_col = app.detail_lines[app.detail_cursor_line].len();
-                                app.detail_lines[app.detail_cursor_line].push_str(&current_line);
-                                app.entries[app.list_index].dirty = app.detail_lines != app.detail_saved_lines;
-                            }
-                        }
-                        KeyCode::Enter => {
-                            let current_line = &mut app.detail_lines[app.detail_cursor_line];
-                            let remainder = current_line.split_off(app.detail_cursor_col);
-                            app.detail_cursor_line += 1;
-                            app.detail_lines.insert(app.detail_cursor_line, remainder);
-                            app.detail_cursor_col = 0;
-                            app.entries[app.list_index].dirty = app.detail_lines != app.detail_saved_lines;
-                        }
-                        KeyCode::Left => {
-                            if app.detail_cursor_col > 0 {
-                                app.detail_cursor_col -= 1;
-                            }
-                        }
-                        KeyCode::Right => {
-                            if app.detail_cursor_col < app.detail_lines[app.detail_cursor_line].len() {
-                                app.detail_cursor_col += 1;
-                            }
-                        }
-                        KeyCode::Up => {
-                            if app.detail_cursor_line > 0 {
-                                app.detail_cursor_line -= 1;
-                                app.detail_cursor_col = app.detail_cursor_col.min(app.detail_lines[app.detail_cursor_line].len());
-                            }
-                        }
-                        KeyCode::Down => {
-                            if app.detail_cursor_line < app.detail_lines.len() - 1 {
-                                app.detail_cursor_line += 1;
-                                app.detail_cursor_col = app.detail_cursor_col.min(app.detail_lines[app.detail_cursor_line].len());
-                            }
-                        }
                         KeyCode::Esc => {
-                            if app.entries[app.list_index].dirty {
-                                app.message = Some("Unsaved changes! Use :q to discard or :x to save".to_string());
-                            } else {
-                                app.exit_detail_view(false);
+                            // Let edtui handle Esc for mode switching, only exit if in Normal mode
+                            if let Some(ref editor_state) = app.editor_state {
+                                if editor_state.mode == edtui::EditorMode::Normal {
+                                    if app.entries[app.list_index].dirty {
+                                        app.message = Some("Unsaved changes! Use :q to discard or :x to save".to_string());
+                                    } else {
+                                        app.exit_detail_view(false);
+                                    }
+                                } else {
+                                    editor_handler.on_key_event(key, app.editor_state.as_mut().unwrap());
+                                }
                             }
                         }
-                        _ => {}
+                        _ => {
+                            if let Some(ref mut editor_state) = app.editor_state {
+                                editor_handler.on_key_event(key, editor_state);
+                                app.entries[app.list_index].dirty = true;
+                            }
+                        }
                     }
                 }
                 app_state::View::Command => {

@@ -14,6 +14,7 @@
 //! This separation means rendering can never corrupt application state.
 use crate::app_state::{AppState, View};
 use crate::config::Config;
+use edtui::{EditorView, EditorTheme, SyntaxHighlighter};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
@@ -21,7 +22,7 @@ use ratatui::{
     Frame,
 };
 
-pub fn draw(f: &mut Frame, app: &AppState, cfg: &Config) {
+pub fn draw(f: &mut Frame, app: &mut AppState, cfg: &Config) {
     match app.current_view {
         View::List => draw_list(f, app),
         View::Detail => draw_detail(f, app, cfg),
@@ -86,7 +87,7 @@ fn draw_list(f: &mut Frame, app: &AppState) {
     f.render_widget(help, chunks[1]);
 }
 
-fn draw_detail(f: &mut Frame, app: &AppState, _cfg: &Config) {
+fn draw_detail(f: &mut Frame, app: &mut AppState, _cfg: &Config) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -115,27 +116,37 @@ fn draw_detail(f: &mut Frame, app: &AppState, _cfg: &Config) {
         .block(Block::default().borders(Borders::ALL).title("Diagnostic"));
     f.render_widget(info, chunks[0]);
 
-    let indent = app.get_indent();
     let max_width = app.get_max_line_width();
-    let indent_str = " ".repeat(indent);
-
-    let doc_prefix = app.entries[app.list_index].doc_prefix();
-    let mut display_text = String::new();
-    for (i, line) in app.detail_lines.iter().enumerate() {
-        display_text.push_str(&format!("{}{} {}", indent_str, doc_prefix, line));
-        if i < app.detail_lines.len() - 1 {
-            display_text.push('\n');
+    let max_width_u16: u16 = match max_width.try_into() {
+        Ok(value) => value, // Successfully converted
+        Err(_) => {
+            u16::MAX
         }
-    }
+    };
 
     let title = format!("Doc Comment (max line: {} chars)", max_width);
-    let doc_input = Paragraph::new(display_text)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(title),
-        );
-    f.render_widget(doc_input, chunks[1]);
+
+    if let Some(ref mut editor_state) = app.editor_state {
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title(title);
+        let inner = block.inner(chunks[1]);
+        f.render_widget(block, chunks[1]);
+
+        let syntax_highlighter = SyntaxHighlighter::new("dracula", "rs");
+        let editor = EditorView::new(editor_state)
+            .theme(EditorTheme::default())
+            .syntax_highlighter(Some(syntax_highlighter))
+            .wrap(true);
+
+        let editor_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![Constraint::Length(max_width_u16), Constraint::Min(0)])
+            .split(inner);
+
+        f.render_widget(editor, editor_chunks[0]);
+    }
+
 
     let help_text = if app.current_view == View::Command {
         format!(":{}", app.command_buffer)
