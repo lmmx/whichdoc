@@ -1,8 +1,8 @@
 build:
-    cargo build --workspace
+    cargo build --workspace --all-features
 
 check:
-    cargo check --workspace
+    cargo check --workspace --all-features
 
 clippy:
     cargo clippy --workspace --all-targets --all-features --target-dir target/clippy-all-features -- -D warnings
