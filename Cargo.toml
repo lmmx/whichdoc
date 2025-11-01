@@ -10,6 +10,7 @@ serde_json = "1"
 atty = "0.2"
 facet = "0.30"
 facet-toml = "0.30"
+edtui = { version = "0.9.8", features = ["arboard", "syntax-highlighting"] }
 
 [package]
 authors = ["Louis Maddox <louismmx@gmail.com>"]
