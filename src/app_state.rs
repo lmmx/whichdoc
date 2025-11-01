@@ -46,11 +46,11 @@ impl DiagnosticEntry {
     }
 
     pub fn is_external_module_with_file(&self) -> bool {
-        self.is_external_module && Some(self.module_file_path)
+        self.is_external_module && self.module_file_path.is_some()
     }
 
     pub fn doc_prefix(&self) -> &'static str {
-        if self.is_external_module_with_file {
+        if self.is_external_module_with_file() {
             "//!"
         } else {
             "///"
@@ -108,6 +108,7 @@ pub struct AppState {
     pub command_buffer: String,
     pub message: Option<String>,
     pub max_width: usize,
+    pub file_offsets: HashMap<String, HashMap<i64, usize>>,
 }
 
 #[derive(PartialEq)]
@@ -136,11 +137,60 @@ impl AppState {
             command_buffer: String::new(),
             message: None,
             max_width,
+            file_offsets: HashMap::new(),
+        }
+    }
+
+    fn rebuild_file_offsets(&mut self) {
+        self.file_offsets.clear();
+
+        for entry in &self.entries {
+            if entry.doc_comment.is_none() {
+                continue;
+            }
+
+            let lines_added = entry.lines_added();
+
+            if entry.is_external_module_with_file() {
+                // External modules write to target file at line 0, not source file's span location
+                let file_map = self.file_offsets
+                    .entry(entry.module_file_path.clone().unwrap())
+                    .or_insert_with(HashMap::new);
+
+                file_map.insert(0, lines_added);
+            } else if let Some(ref msg) = entry.coord.message {
+                if let Some(span) = msg.spans.iter().find(|s| s.is_primary) {
+                    let file_map = self.file_offsets
+                        .entry(span.file_name.clone())
+                        .or_insert_with(HashMap::new);
+
+                    file_map.insert(span.line_start, lines_added);
+                }
+            }
         }
     }
 
     pub fn cumulative_offset(&self, index: usize) -> usize {
-        self.entries[0..index].iter().map(|e| e.lines_added()).sum()
+        let entry = &self.entries[index];
+
+        let (target_file, target_line) = if let Some(ref msg) = entry.coord.message {
+            if let Some(span) = msg.spans.iter().find(|s| s.is_primary) {
+                (span.file_name.clone(), span.line_start)
+            } else {
+                return 0;
+            }
+        } else {
+            return 0;
+        };
+
+        if let Some(file_map) = self.file_offsets.get(&target_file) {
+            file_map.iter()
+                .filter(|(line, _)| **line < target_line)
+                .map(|(_, offset)| offset)
+                .sum()
+        } else {
+            0
+        }
     }
 
     pub fn load_docs(&mut self, plan: EditPlan) {
@@ -183,7 +233,7 @@ impl AppState {
                                 doc_comment,
                                 item_name,
                                 span: span.clone(),
-                                is_module_doc: entry.is_external_module_with_file,
+                                is_module_doc: entry.is_external_module_with_file(),
                             });
                         }
                     }
@@ -220,15 +270,21 @@ impl AppState {
     }
 
     pub fn save_current(&mut self) -> io::Result<()> {
+        // Saves the current diagnostic's documentation to disk and updates the offset tracking.
+        //
+        // Takes the documentation lines from the detail editor and writes them to the appropriate
+        // file, either as a module docstring (//!) at the start of an external module file, or as
+        // a regular docstring (///) before the item at the diagnostic's location. After writing,
+        // rebuilds the file offset map to track cumulative line additions per file.
         self.entries[self.list_index].doc_comment = Some(self.detail_lines.clone());
         self.entries[self.list_index].dirty = false;
         self.detail_saved_lines = self.detail_lines.clone();
 
         let entry = &self.entries[self.list_index];
 
-        if entry.is_external_module_with_file {
+        if entry.is_external_module_with_file() {
             // the ...with_file variant ensures module_file_path is Some
-            self.apply_module_doc(entry.module_file_path)?;
+            self.apply_module_doc(entry.module_file_path.as_ref().unwrap())?;
         } else if let Some(ref msg) = entry.coord.message {
             for span in &msg.spans {
                 if span.is_primary {
@@ -251,6 +307,7 @@ impl AppState {
             }
         }
 
+        self.rebuild_file_offsets();
         self.message = Some("Saved".to_string());
         Ok(())
     }
@@ -317,7 +374,7 @@ impl AppState {
             return 0;
         }
         let entry = &self.entries[self.list_index];
-        if entry.is_external_module_with_file {
+        if entry.is_external_module_with_file() {
             return 0;
         }
         if let Some(ref msg) = entry.coord.message {
