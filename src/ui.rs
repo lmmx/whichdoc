@@ -14,6 +14,7 @@
 //! This separation means rendering can never corrupt application state.
 use crate::app_state::{AppState, View};
 use crate::config::Config;
+use edtui::{EditorView, EditorTheme};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
@@ -115,27 +116,22 @@ fn draw_detail(f: &mut Frame, app: &AppState, _cfg: &Config) {
         .block(Block::default().borders(Borders::ALL).title("Diagnostic"));
     f.render_widget(info, chunks[0]);
 
-    let indent = app.get_indent();
     let max_width = app.get_max_line_width();
-    let indent_str = " ".repeat(indent);
+    let title = format!("Doc Comment (max line: {} chars)", max_width);
 
-    let doc_prefix = app.entries[app.list_index].doc_prefix();
-    let mut display_text = String::new();
-    for (i, line) in app.detail_lines.iter().enumerate() {
-        display_text.push_str(&format!("{}{} {}", indent_str, doc_prefix, line));
-        if i < app.detail_lines.len() - 1 {
-            display_text.push('\n');
-        }
+    if let Some(ref mut editor_state) = app.editor_state {
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title(title);
+        let inner = block.inner(chunks[1]);
+        f.render_widget(block, chunks[1]);
+
+        let editor = EditorView::new(editor_state)
+            .theme(EditorTheme::default().hide_status_line())
+            .wrap(false);
+        f.render_widget(editor, inner);
     }
 
-    let title = format!("Doc Comment (max line: {} chars)", max_width);
-    let doc_input = Paragraph::new(display_text)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(title),
-        );
-    f.render_widget(doc_input, chunks[1]);
 
     let help_text = if app.current_view == View::Command {
         format!(":{}", app.command_buffer)
