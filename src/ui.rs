@@ -22,7 +22,7 @@ use ratatui::{
     Frame,
 };
 
-pub fn draw(f: &mut Frame, app: &AppState, cfg: &Config) {
+pub fn draw(f: &mut Frame, app: &mut AppState, cfg: &Config) {
     match app.current_view {
         View::List => draw_list(f, app),
         View::Detail => draw_detail(f, app, cfg),
@@ -87,7 +87,7 @@ fn draw_list(f: &mut Frame, app: &AppState) {
     f.render_widget(help, chunks[1]);
 }
 
-fn draw_detail(f: &mut Frame, app: &AppState, _cfg: &Config) {
+fn draw_detail(f: &mut Frame, app: &mut AppState, _cfg: &Config) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
