@@ -50,7 +50,7 @@ pub struct Edit {
 impl Edit {
     #[must_use]
     pub fn format_doc_lines(&self, max_width: usize) -> Vec<String> {
-        let indent = " ".repeat((self.column_start - 1) as usize);
+        let indent = " ".repeat(usize::try_from(self.column_start - 1).unwrap_or(0));
         let prefix = if self.is_module_doc { "//!" } else { "///" };
         let available_width = max_width.saturating_sub(indent.len() + prefix.len() + 1);
 

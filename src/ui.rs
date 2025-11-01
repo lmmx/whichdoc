@@ -25,8 +25,7 @@ use ratatui::{
 pub fn draw(f: &mut Frame, app: &mut AppState, cfg: &Config) {
     match app.current_view {
         View::List => draw_list(f, app),
-        View::Detail => draw_detail(f, app, cfg),
-        View::Command => draw_detail(f, app, cfg),
+        View::Detail | View::Command => draw_detail(f, app, cfg),
     }
 }
 

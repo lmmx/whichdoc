@@ -384,7 +384,10 @@ impl AppState {
             .collect();
 
         let offset = self.cumulative_offset(self.list_index);
-        let insert_pos = (edit.line_start as usize - 1) + offset;
+        let insert_pos = (usize::try_from(edit.line_start)
+            .unwrap_or(0)
+            .saturating_sub(1))
+            + offset;
         let doc_lines = edit.format_doc_lines(self.max_width);
 
         for (i, doc_line) in doc_lines.iter().enumerate() {
@@ -419,7 +422,7 @@ impl AppState {
         if let Some(ref msg) = entry.coord.message {
             for span in &msg.spans {
                 if span.is_primary {
-                    return (span.column_start - 1) as usize;
+                    return usize::try_from(span.column_start - 1).unwrap_or(0);
                 }
             }
         }
