@@ -1,5 +1,5 @@
 //! whichdoc: A cargo documentation diagnostics-driven editor.
-use crossterm::{
+use ratatui::crossterm::{
     event::{self, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -45,7 +45,7 @@ fn run_tui(mut app: app_state::AppState, cfg: config::Config) -> io::Result<()> 
 
     let mut editor_handler = EditorEventHandler::default();
 
-    let result = run_app(&mut terminal, &mut app, &cfg);
+    let result = run_app(&mut terminal, &mut app, &cfg, &mut editor_handler);
 
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
@@ -66,6 +66,7 @@ fn run_app<B: ratatui::backend::Backend>(
     terminal: &mut Terminal<B>,
     app: &mut app_state::AppState,
     cfg: &config::Config,
+    editor_handler: &mut EditorEventHandler,
 ) -> io::Result<()> {
     loop {
         terminal.draw(|f| ui::draw(f, app, cfg))?;
