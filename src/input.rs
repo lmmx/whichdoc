@@ -17,7 +17,7 @@ use std::process::{Command, Stdio};
 pub fn read_cargo_diagnostics() -> io::Result<Vec<Coordinate>> {
     let input: Box<dyn BufRead> = if atty::is(atty::Stream::Stdin) {
         let child = Command::new("cargo")
-            .args(&["doc", "--message-format=json"])
+            .args(["doc", "--message-format=json"])
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()?;

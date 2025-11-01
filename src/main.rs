@@ -49,11 +49,11 @@ fn run_tui(mut app: app_state::AppState, cfg: config::Config) -> io::Result<()> 
     terminal.show_cursor()?;
 
     if let Err(e) = result {
-        eprintln!("Error: {}", e);
+        eprintln!("Error: {e}");
     } else {
         let plan = app.generate_edit_plan();
         let json = serde_json::to_string_pretty(&plan)?;
-        println!("{}", json);
+        println!("{json}");
     }
 
     Ok(())

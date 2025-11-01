@@ -397,22 +397,14 @@ impl AppState {
 
     #[must_use]
     pub fn find_next_undocumented(&self) -> Option<usize> {
-        for i in (self.list_index + 1)..self.entries.len() {
-            if self.entries[i].doc_comment.is_none() {
-                return Some(i);
-            }
-        }
-        None
+        ((self.list_index + 1)..self.entries.len()).find(|&i| self.entries[i].doc_comment.is_none())
     }
 
     #[must_use]
     pub fn find_prev_undocumented(&self) -> Option<usize> {
-        for i in (0..self.list_index).rev() {
-            if self.entries[i].doc_comment.is_none() {
-                return Some(i);
-            }
-        }
-        None
+        (0..self.list_index)
+            .rev()
+            .find(|&i| self.entries[i].doc_comment.is_none())
     }
 
     #[must_use]
