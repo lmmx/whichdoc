@@ -51,15 +51,17 @@ fn draw_list(f: &mut Frame, app: &AppState) {
                     .iter()
                     .find(|s| s.is_primary)
                     .and_then(|s| s.text.first())
-                    .map(|t| {
-                        t.text
-                            .split('{')
-                            .next()
-                            .unwrap_or("unknown")
-                            .trim()
-                            .to_string()
-                    })
-                    .unwrap_or_else(|| "unknown".to_string())
+                    .map_or_else(
+                        || "unknown".to_string(),
+                        |t| {
+                            t.text
+                                .split('{')
+                                .next()
+                                .unwrap_or("unknown")
+                                .trim()
+                                .to_string()
+                        },
+                    )
             } else {
                 "unknown".to_string()
             };
