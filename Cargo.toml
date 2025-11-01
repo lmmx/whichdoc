@@ -24,7 +24,7 @@ name = "whichdoc"
 readme = "README.md"
 repository = "https://github.com/lmmx/whichdoc"
 rust-version = "1.90"
-version = "0.1.1"
+version = "0.1.2"
 
 [package.metadata.binstall]
 pkg-fmt = "tgz"

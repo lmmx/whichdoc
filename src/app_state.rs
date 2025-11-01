@@ -45,8 +45,12 @@ impl DiagnosticEntry {
         self.doc_comment.as_ref().map_or(0, |v| v.len())
     }
 
+    pub fn is_external_module_with_file(&self) -> bool {
+        self.is_external_module && Some(self.module_file_path)
+    }
+
     pub fn doc_prefix(&self) -> &'static str {
-        if self.is_external_module {
+        if self.is_external_module_with_file {
             "//!"
         } else {
             "///"
@@ -179,7 +183,7 @@ impl AppState {
                                 doc_comment,
                                 item_name,
                                 span: span.clone(),
-                                is_module_doc: entry.is_external_module,
+                                is_module_doc: entry.is_external_module_with_file,
                             });
                         }
                     }
@@ -222,10 +226,9 @@ impl AppState {
 
         let entry = &self.entries[self.list_index];
 
-        if entry.is_external_module {
-            if let Some(ref module_path) = entry.module_file_path {
-                self.apply_module_doc(module_path)?;
-            }
+        if entry.is_external_module_with_file {
+            // the ...with_file variant ensures module_file_path is Some
+            self.apply_module_doc(entry.module_file_path)?;
         } else if let Some(ref msg) = entry.coord.message {
             for span in &msg.spans {
                 if span.is_primary {
@@ -314,7 +317,7 @@ impl AppState {
             return 0;
         }
         let entry = &self.entries[self.list_index];
-        if entry.is_external_module {
+        if entry.is_external_module_with_file {
             return 0;
         }
         if let Some(ref msg) = entry.coord.message {
