@@ -444,6 +444,7 @@ impl AppState {
             lines.insert(insert_pos + i, doc_line.clone());
         }
 
+        fs::write(&edit.file_name, lines.join("\n") + "\n")?;
         Ok(())
     }
 
