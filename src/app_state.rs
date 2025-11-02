@@ -434,49 +434,55 @@ impl AppState {
             .saturating_sub(1);
         let insert_pos = base_pos + offset;
 
-        use std::io::Write;
-        let mut debug_file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open("/tmp/whichdoc_debug.log")
-            .unwrap();
+        if std::env::var("WHICHDOC_DEBUG").is_ok() {
+            use std::io::Write;
+            let mut debug_file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/tmp/whichdoc_debug.log")
+                .unwrap();
 
-        writeln!(debug_file, "=== apply_single_edit ===")?;
-        writeln!(
-            debug_file,
-            "line_start={}, base_pos={}, offset={}, insert_pos={}",
-            edit.line_start, base_pos, offset, insert_pos
-        )?;
-        writeln!(
-            debug_file,
-            "old_lines_count={}, new_lines_count={}",
-            old_lines_count,
-            edit.format_doc_lines(self.max_width).len()
-        )?;
-        writeln!(
-            debug_file,
-            "Line at insert_pos: {:?}",
-            lines.get(insert_pos)
-        )?;
+            writeln!(debug_file, "=== apply_single_edit ===")?;
+            writeln!(
+                debug_file,
+                "line_start={}, base_pos={}, offset={}, insert_pos={}",
+                edit.line_start, base_pos, offset, insert_pos
+            )?;
+            writeln!(
+                debug_file,
+                "old_lines_count={}, new_lines_count={}",
+                old_lines_count,
+                edit.format_doc_lines(self.max_width).len()
+            )?;
+            writeln!(
+                debug_file,
+                "Line at insert_pos: {:?}",
+                lines.get(insert_pos)
+            )?;
+
+            if old_lines_count > 0 {
+                writeln!(
+                    debug_file,
+                    "Removing lines[{}..{}]",
+                    insert_pos,
+                    insert_pos + old_lines_count
+                )?;
+                writeln!(
+                    debug_file,
+                    "Lines being removed: {:?}",
+                    &lines[insert_pos..insert_pos + old_lines_count]
+                )?;
+            }
+
+            writeln!(debug_file, "Inserting at position {}", insert_pos)?;
+        }
 
         // Remove old doc comment if it exists
         if old_lines_count > 0 {
-            writeln!(
-                debug_file,
-                "Removing lines[{}..{}]",
-                insert_pos,
-                insert_pos + old_lines_count
-            )?;
-            writeln!(
-                debug_file,
-                "Lines being removed: {:?}",
-                &lines[insert_pos..insert_pos + old_lines_count]
-            )?;
             lines.drain(insert_pos..insert_pos + old_lines_count);
         }
 
         let doc_lines = edit.format_doc_lines(self.max_width);
-        writeln!(debug_file, "Inserting at position {}", insert_pos)?;
 
         for (i, doc_line) in doc_lines.iter().enumerate() {
             lines.insert(insert_pos + i, doc_line.clone());
