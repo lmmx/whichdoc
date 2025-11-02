@@ -1,5 +1,5 @@
 # Rust release workflow using release-plz
-ship:
+ship version="auto":
     #!/usr/bin/env -S echo-comment --shell-flags="-euo pipefail" --color="\\033[38;5;202m"
 
     # 🔍 Refuse to run if not on master branch or not up to date with origin/master
@@ -25,13 +25,27 @@ ship:
     just publish --dry-run
     # ✅ Dry-run went OK, proceeding to real release
 
-    # 🦀 Update Cargo.toml versions and changelogs
-    release-plz update
+    if [[ "{{version}}" != "auto" ]]; then
+        if [[ -n "$(git status --porcelain)" ]]; then
+            # ❌ Working directory must be clean for manual version bump
+            git status --short
+            exit 1
+        fi
+
+        # 🦀 Explicit version bump with release-plz
+        release-plz set-version {{version}}
+
+        # 🦀 Update changelog with new version
+        release-plz update --allow-dirty
+    else
+        # 🦀 Auto update Cargo.toml versions and changelogs
+        release-plz update
+    fi
+
     git add .
     # Run a pre-precommit lint pass to avoid the linter halting our release!
     just precommit || true
     git commit -m "chore(release): 🦀 Upgrades"
-    # Note: if already pushed you would just need to revert the additions (delete changelogs)
 
     # 🦀 Run prepush only for the Rust crates we are releasing
     just prepush
