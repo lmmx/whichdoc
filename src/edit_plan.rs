@@ -98,6 +98,17 @@ impl Edit {
             }
         }
 
+        if std::env::var("WHICHDOC_DEBUG").is_ok() {
+            use std::io::Write;
+            let mut debug_file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/tmp/whichdoc_debug.log")
+                .unwrap();
+            writeln!(debug_file, "format_doc_lines input: {:?}", self.doc_comment).ok();
+            writeln!(debug_file, "format_doc_lines output: {:?}", lines).ok();
+        }
+
         lines
     }
 }

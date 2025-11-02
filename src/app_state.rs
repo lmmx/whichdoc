@@ -326,28 +326,29 @@ impl AppState {
         let entry = &self.entries[self.list_index];
 
         // Get the number of FORMATTED lines that are currently in the file
-        let old_formatted_lines_count = if let Some(ref msg) = entry.coord.message {
-            if let Some(span) = msg.spans.iter().find(|s| s.is_primary) {
-                let edit = Edit {
-                    file_name: span.file_name.clone(),
-                    line_start: span.line_start,
-                    line_end: span.line_end,
-                    column_start: span.column_start,
-                    column_end: span.column_end,
-                    doc_comment: entry
-                        .doc_comment
-                        .as_ref()
-                        .map_or(String::new(), |d| d.join("\n")),
-                    item_name: extract_item_name(span),
-                    span: span.clone(),
-                    is_module_doc: false,
-                };
-                edit.format_doc_lines(self.max_width).len()
+        let old_formatted_lines_count = if let Some(ref doc) = entry.doc_comment {
+            if let Some(ref msg) = entry.coord.message {
+                if let Some(span) = msg.spans.iter().find(|s| s.is_primary) {
+                    let edit = Edit {
+                        file_name: span.file_name.clone(),
+                        line_start: span.line_start,
+                        line_end: span.line_end,
+                        column_start: span.column_start,
+                        column_end: span.column_end,
+                        doc_comment: doc.join("\n"),
+                        item_name: extract_item_name(span),
+                        span: span.clone(),
+                        is_module_doc: false,
+                    };
+                    edit.format_doc_lines(self.max_width).len()
+                } else {
+                    0
+                }
             } else {
                 0
             }
         } else {
-            0
+            0 // No existing doc comment
         };
 
         let entry = &self.entries[self.list_index];
@@ -432,6 +433,49 @@ impl AppState {
             .unwrap_or(0)
             .saturating_sub(1);
         let insert_pos = base_pos + offset;
+
+        if std::env::var("WHICHDOC_DEBUG").is_ok() {
+            use std::io::Write;
+            let mut debug_file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/tmp/whichdoc_debug.log")
+                .unwrap();
+
+            writeln!(debug_file, "=== apply_single_edit ===")?;
+            writeln!(
+                debug_file,
+                "line_start={}, base_pos={}, offset={}, insert_pos={}",
+                edit.line_start, base_pos, offset, insert_pos
+            )?;
+            writeln!(
+                debug_file,
+                "old_lines_count={}, new_lines_count={}",
+                old_lines_count,
+                edit.format_doc_lines(self.max_width).len()
+            )?;
+            writeln!(
+                debug_file,
+                "Line at insert_pos: {:?}",
+                lines.get(insert_pos)
+            )?;
+
+            if old_lines_count > 0 {
+                writeln!(
+                    debug_file,
+                    "Removing lines[{}..{}]",
+                    insert_pos,
+                    insert_pos + old_lines_count
+                )?;
+                writeln!(
+                    debug_file,
+                    "Lines being removed: {:?}",
+                    &lines[insert_pos..insert_pos + old_lines_count]
+                )?;
+            }
+
+            writeln!(debug_file, "Inserting at position {}", insert_pos)?;
+        }
 
         // Remove old doc comment if it exists
         if old_lines_count > 0 {
