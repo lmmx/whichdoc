@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7](https://github.com/lmmx/whichdoc/compare/whichdoc-v0.1.6...whichdoc-v0.1.7) - 2025-11-02
+
+### <!-- 2 -->Bug Fixes
+
+- retain paragraph breaks and newlines ([#19](https://github.com/lmmx/whichdoc/pull/19))
+- no colon intercept (closes #17) ([#18](https://github.com/lmmx/whichdoc/pull/18))
+
 ## [0.1.6](https://github.com/lmmx/whichdoc/compare/whichdoc-v0.1.5...whichdoc-v0.1.6) - 2025-11-02
 
 ### <!-- 2 -->Bug Fixes
