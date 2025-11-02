@@ -42,6 +42,7 @@ ship version="auto":
         release-plz update
     fi
 
+    cargo check
     git add .
     # Run a pre-precommit lint pass to avoid the linter halting our release!
     just precommit || true
