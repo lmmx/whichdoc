@@ -92,9 +92,18 @@ fn run_app<B: ratatui::backend::Backend>(
                 app_state::View::Detail => {
                     match key.code {
                         KeyCode::Char(':') => {
-                            app.current_view = app_state::View::Command;
-                            app.command_buffer.clear();
-                            app.message = None;
+                            // Only intercept ':' in Normal mode, otherwise pass to editor
+                            if let Some(ref editor_state) = app.editor_state {
+                                if editor_state.mode == edtui::EditorMode::Normal {
+                                    app.current_view = app_state::View::Command;
+                                    app.command_buffer.clear();
+                                    app.message = None;
+                                } else {
+                                    editor_handler
+                                        .on_key_event(key, app.editor_state.as_mut().unwrap());
+                                    app.entries[app.list_index].dirty = true;
+                                }
+                            }
                         }
                         KeyCode::Esc => {
                             // Let edtui handle Esc for mode switching, only exit if in Normal mode
