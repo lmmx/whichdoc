@@ -314,6 +314,7 @@ impl AppState {
         // a regular docstring (///) before the item at the diagnostic's location. After writing,
         // rebuilds the file offset map to track cumulative line additions per file.
         // Extract text from editor before saving
+        // Extract text from editor before saving
         if let Some(ref editor_state) = self.editor_state {
             self.detail_lines = editor_state
                 .lines
@@ -321,15 +322,41 @@ impl AppState {
                 .map(|line| line.iter().collect::<String>())
                 .collect();
         }
-        self.entries[self.list_index].doc_comment = Some(self.detail_lines.clone());
-        self.entries[self.list_index].dirty = false;
-        self.detail_saved_lines = self.detail_lines.clone();
+
+        let entry = &self.entries[self.list_index];
+
+        // Get the number of FORMATTED lines that are currently in the file
+        let old_formatted_lines_count = if let Some(ref msg) = entry.coord.message {
+            if let Some(span) = msg.spans.iter().find(|s| s.is_primary) {
+                let edit = Edit {
+                    file_name: span.file_name.clone(),
+                    line_start: span.line_start,
+                    line_end: span.line_end,
+                    column_start: span.column_start,
+                    column_end: span.column_end,
+                    doc_comment: entry
+                        .doc_comment
+                        .as_ref()
+                        .map_or(String::new(), |d| d.join("\n")),
+                    item_name: extract_item_name(span),
+                    span: span.clone(),
+                    is_module_doc: false,
+                };
+                edit.format_doc_lines(self.max_width).len()
+            } else {
+                0
+            }
+        } else {
+            0
+        };
 
         let entry = &self.entries[self.list_index];
 
         if entry.is_external_module_with_file() {
-            // the ...with_file variant ensures module_file_path is Some
-            self.apply_module_doc(entry.module_file_path.as_ref().unwrap())?;
+            self.apply_module_doc(
+                entry.module_file_path.as_ref().unwrap(),
+                old_formatted_lines_count,
+            )?;
         } else if let Some(ref msg) = entry.coord.message {
             for span in &msg.spans {
                 if span.is_primary {
@@ -346,23 +373,32 @@ impl AppState {
                         is_module_doc: false,
                     };
 
-                    self.apply_single_edit(&edit)?;
+                    self.apply_single_edit(&edit, old_formatted_lines_count)?;
                     break;
                 }
             }
         }
+
+        self.entries[self.list_index].doc_comment = Some(self.detail_lines.clone());
+        self.entries[self.list_index].dirty = false;
+        self.detail_saved_lines = self.detail_lines.clone();
 
         self.rebuild_file_offsets();
         self.message = Some("Saved".to_string());
         Ok(())
     }
 
-    fn apply_module_doc(&self, module_path: &str) -> io::Result<()> {
+    fn apply_module_doc(&self, module_path: &str, old_lines_count: usize) -> io::Result<()> {
         let content = fs::read_to_string(module_path)?;
         let mut lines: Vec<String> = content
             .lines()
             .map(std::string::ToString::to_string)
             .collect();
+
+        // Remove old doc comment if it exists
+        if old_lines_count > 0 {
+            lines.drain(0..old_lines_count);
+        }
 
         let doc_lines: Vec<String> = self
             .detail_lines
@@ -384,7 +420,7 @@ impl AppState {
         Ok(())
     }
 
-    fn apply_single_edit(&self, edit: &Edit) -> io::Result<()> {
+    fn apply_single_edit(&self, edit: &Edit, old_lines_count: usize) -> io::Result<()> {
         let content = fs::read_to_string(&edit.file_name)?;
         let mut lines: Vec<String> = content
             .lines()
@@ -392,17 +428,22 @@ impl AppState {
             .collect();
 
         let offset = self.cumulative_offset(self.list_index);
-        let insert_pos = (usize::try_from(edit.line_start)
+        let base_pos = usize::try_from(edit.line_start)
             .unwrap_or(0)
-            .saturating_sub(1))
-            + offset;
+            .saturating_sub(1);
+        let insert_pos = base_pos + offset;
+
+        // Remove old doc comment if it exists
+        if old_lines_count > 0 {
+            lines.drain(insert_pos..insert_pos + old_lines_count);
+        }
+
         let doc_lines = edit.format_doc_lines(self.max_width);
 
         for (i, doc_line) in doc_lines.iter().enumerate() {
             lines.insert(insert_pos + i, doc_line.clone());
         }
 
-        fs::write(&edit.file_name, lines.join("\n") + "\n")?;
         Ok(())
     }
 
