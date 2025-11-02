@@ -1,4 +1,3 @@
-use once_cell::sync::Lazy;
 use ratatui::{
     style::{Color, Style},
     text::{Line, Span},
@@ -7,9 +6,13 @@ use syntect::easy::HighlightLines;
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
 
-static SYNTAX_SET: Lazy<SyntaxSet> = Lazy::new(SyntaxSet::load_defaults_newlines);
-static THEME_SET: Lazy<ThemeSet> = Lazy::new(ThemeSet::load_defaults);
+static SYNTAX_SET: std::sync::LazyLock<SyntaxSet> =
+    std::sync::LazyLock::new(SyntaxSet::load_defaults_newlines);
+static THEME_SET: std::sync::LazyLock<ThemeSet> = std::sync::LazyLock::new(ThemeSet::load_defaults);
 
+/// # Panics
+///
+/// Panics if syntax highlighting fails for any line in the input.
 pub fn highlight_source_lines(
     lines: &[&str],
     start: usize,
@@ -31,7 +34,7 @@ pub fn highlight_source_lines(
         } else {
             " "
         };
-        let line_num_text = format!("{} {:4} | ", marker, line_num);
+        let line_num_text = format!("{marker} {line_num:4} | ");
 
         let highlighted = highlight_lines
             .highlight_line(line_text, &SYNTAX_SET)

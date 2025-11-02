@@ -138,7 +138,10 @@ fn draw_detail(f: &mut Frame, app: &mut AppState, _cfg: &Config) {
 
                 // Add the cumulative offset here
                 let offset = app.cumulative_offset(app.list_index);
-                let target_line = (span.line_start as usize).saturating_sub(1) + offset;
+                let target_line = usize::try_from(span.line_start)
+                    .unwrap_or(0)
+                    .saturating_sub(1)
+                    + offset;
                 let start = target_line.saturating_sub(5);
                 let end = (target_line + 15).min(lines.len());
 

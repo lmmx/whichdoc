@@ -1384,7 +1384,6 @@ dependencies = [
  "edtui",
  "facet",
  "facet-toml",
- "once_cell",
  "ratatui",
  "serde",
  "serde_json",
