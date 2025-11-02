@@ -55,22 +55,31 @@ impl Edit {
         let available_width = max_width.saturating_sub(indent.len() + prefix.len() + 1);
 
         let mut lines = Vec::new();
-        let mut current_line = String::new();
 
-        for word in self.doc_comment.split_whitespace() {
-            if current_line.is_empty() {
-                current_line = word.to_string();
-            } else if current_line.len() + 1 + word.len() <= available_width {
-                current_line.push(' ');
-                current_line.push_str(word);
-            } else {
-                lines.push(format!("{indent}{prefix} {current_line}"));
-                current_line = word.to_string();
+        // Split by lines first to preserve explicit line breaks
+        for paragraph in self.doc_comment.split('\n') {
+            if paragraph.trim().is_empty() {
+                // Empty line - preserve it as an empty comment
+                lines.push(format!("{indent}{prefix}"));
+                continue;
             }
-        }
 
-        if !current_line.is_empty() {
-            lines.push(format!("{indent}{prefix} {current_line}"));
+            let mut current_line = String::new();
+            for word in paragraph.split_whitespace() {
+                if current_line.is_empty() {
+                    current_line = word.to_string();
+                } else if current_line.len() + 1 + word.len() <= available_width {
+                    current_line.push(' ');
+                    current_line.push_str(word);
+                } else {
+                    lines.push(format!("{indent}{prefix} {current_line}"));
+                    current_line = word.to_string();
+                }
+            }
+
+            if !current_line.is_empty() {
+                lines.push(format!("{indent}{prefix} {current_line}"));
+            }
         }
 
         lines
