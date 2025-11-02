@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5](https://github.com/lmmx/whichdoc/compare/whichdoc-v0.1.4...whichdoc-v0.1.5) - 2025-11-02
+
+### <!-- 1 -->Features
+
+- source file viewer with syntax highlighting ([#15](https://github.com/lmmx/whichdoc/pull/15))
+
+### <!-- 4 -->Documentation
+
+- document how to document
+- install
+- vim-like editor is now official
+
+### <!-- 8 -->Styling
+
+- *(clippy)* fix linter complaints
+
+### <!-- 9 -->Other
+
+- resave docstrings ([#16](https://github.com/lmmx/whichdoc/pull/16))
+- workspace style tags
+
 ## [0.1.4](https://github.com/lmmx/whichdoc/compare/v0.1.3...v0.1.4) - 2025-11-01
 
 ### <!-- 9 -->Other
