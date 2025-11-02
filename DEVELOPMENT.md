@@ -27,6 +27,26 @@ Requirements:
 
 To install precommit hooks with prek, run `just install-hooks` and `just run-pc` to run them.
 
+## Debug Logging
+
+To enable debug logging during development, set the `WHICHDOC_DEBUG` environment variable:
+
+```sh
+WHICHDOC_DEBUG=1 cargo run
+```
+
+or with the installed binary
+
+```
+WHICHDOC_DEBUG=1 whichdoc
+```
+
+This will write detailed logs to `/tmp/whichdoc_debug.log` showing:
+- Document formatting operations (input/output)
+- File edit operations (line positions, offsets, what's being removed/inserted)
+
+Without the env var, no debug output is generated.
+
 ## Release
 
 The Rust release process is two commands (if it works the first time it could be one)
